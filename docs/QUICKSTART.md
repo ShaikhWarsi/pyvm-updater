@@ -43,9 +43,15 @@ pyvm check
 pyvm update
 ```
 
+### Update to a Specific Version
+```bash
+pyvm update --version 3.11.5
+```
+
 ### Update Without Confirmation (Auto Mode)
 ```bash
 pyvm update --auto
+pyvm update --version 3.11.5 --auto
 ```
 
 ### Show System Information

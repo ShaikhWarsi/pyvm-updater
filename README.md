@@ -165,10 +165,17 @@ Update to the latest version:
 pyvm update
 ```
 
+Update to a specific version:
+
+```bash
+pyvm update --version 3.11.5
+```
+
 For automatic installation without confirmation:
 
 ```bash
 pyvm update --auto
+pyvm update --version 3.11.5 --auto
 ```
 
 **IMPORTANT:** This command installs Python side-by-side. Your system Python remains unchanged.
@@ -364,11 +371,9 @@ py --list
 | `pyvm` | Check Python version (default) |
 | `pyvm check` | Check Python version |
 | `pyvm update` | Update Python to latest version |
+| `pyvm update --version 3.11.5` | Update to a specific Python version |
 | `pyvm update --auto` | Update without confirmation |
-| `pyvm update --set-default` | Update and set as system default (Linux) |
-| `pyvm update --auto --set-default` | Fully automated update and setup (Linux) |
-| `pyvm set-default` | List available Python versions (Linux) |
-| `pyvm set-default 3.12` | Set Python 3.12 as system default (Linux) |
+| `pyvm update --version 3.11.5 --auto` | Update to specific version without confirmation |
 | `pyvm info` | Show system information |
 | `pyvm --version` | Show tool version |
 | `pyvm --help` | Show help message |

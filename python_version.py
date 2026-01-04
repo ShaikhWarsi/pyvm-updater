@@ -362,23 +362,39 @@ def update_python_macos(version_str: str) -> bool:
     
     if shutil.which('brew'):
         print("Using Homebrew...")
-        print("Attempting to update Python via Homebrew...")
         
         try:
+            # Extract major.minor version for Homebrew formula (e.g., "3.11" from "3.11.5")
+            parts = version_str.split('.')
+            if len(parts) < 2:
+                print(f"Error: Invalid version format: {version_str}")
+                return False
+            major_minor = f"{parts[0]}.{parts[1]}"
+            
             # Update Homebrew
             print("Updating Homebrew...")
             result = subprocess.run(["brew", "update"], check=False, capture_output=True, text=True)
             if result.returncode != 0:
                 print(f"Warning: brew update failed: {result.stderr}")
             
-            # Upgrade Python
-            print("Upgrading Python...")
-            result = subprocess.run(["brew", "upgrade", "python3"], check=False, capture_output=True, text=True)
-            if result.returncode != 0:
-                print(f"Note: {result.stderr}")
-                print("Python may already be up-to-date or not installed via Homebrew")
+            # Try to install specific version using python@major.minor format
+            formula_name = f"python@{major_minor}"
+            print(f"Installing Python {version_str} via Homebrew (formula: {formula_name})...")
+            result = subprocess.run(["brew", "install", formula_name], check=False, capture_output=True, text=True)
             
-            return True
+            if result.returncode == 0:
+                print(f"✅ Python {version_str} installed successfully via Homebrew")
+                print(f"\n💡 Note: Homebrew installs the latest patch version of {major_minor}.")
+                print(f"   The exact version {version_str} may differ slightly.")
+                return True
+            else:
+                # If specific version not available, provide download link
+                print(f"⚠️  Homebrew formula '{formula_name}' may not be available.")
+                print(f"   Homebrew typically installs the latest patch version of {major_minor}.")
+                print("\n📥 Alternative: Install via official installer from python.org")
+                url_version = version_str.replace('.', '-')
+                print(f"   https://www.python.org/downloads/release/python-{url_version}/")
+                return False
             
         except FileNotFoundError:
             print("Error: Homebrew command not found")
@@ -396,7 +412,7 @@ def update_python_macos(version_str: str) -> bool:
         
         print("\n📦 Option 2: Install Homebrew first")
         print("   /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"")
-        print("   Then run: brew install python")
+        print(f"   Then run: brew install python@{version_str.split('.')[0]}.{version_str.split('.')[1]}")
         
         return False
 
@@ -543,28 +559,48 @@ def check():
 
 @cli.command()
 @click.option('--auto', is_flag=True, help='Automatically proceed without confirmation')
-def update(auto):
-    """Download and install the latest Python version (does NOT modify system defaults)"""
+@click.option('--version', 'target_version', default=None, help='Specify a target Python version (e.g., 3.11.5)')
+def update(auto, target_version):
+    """Download and install Python version (does NOT modify system defaults)
+    
+    By default, installs the latest version. Use --version to specify a particular version.
+    """
     try:
-        click.echo("🔍 Checking for updates...")
-        local_ver, latest_ver, needs_update = check_python_version(silent=True)
+        local_ver = platform.python_version()
+        install_version = None
         
-        if not latest_ver:
-            click.echo("❌ Could not fetch latest version information.")
-            sys.exit(1)
-        
-        click.echo(f"\n📊 Current version: {local_ver}")
-        click.echo(f"📊 Latest version:  {latest_ver}")
-        
-        if not needs_update:
-            click.echo("\n✅ You already have the latest version!")
-            sys.exit(0)
-        
-        click.echo(f"\n🚀 Update available: {local_ver} → {latest_ver}")
+        if target_version:
+            # Validate specified version
+            if not validate_version_string(target_version):
+                click.echo(f"❌ Error: Invalid version format: {target_version}")
+                click.echo("Version should be in format: X.Y.Z (e.g., 3.11.5)")
+                sys.exit(1)
+            
+            install_version = target_version
+            click.echo(f"📌 Target version specified: {install_version}")
+            click.echo(f"📊 Current version: {local_ver}")
+        else:
+            # Check for latest version
+            click.echo("🔍 Checking for updates...")
+            local_ver, latest_ver, needs_update = check_python_version(silent=True)
+            
+            if not latest_ver:
+                click.echo("❌ Could not fetch latest version information.")
+                sys.exit(1)
+            
+            click.echo(f"\n📊 Current version: {local_ver}")
+            click.echo(f"📊 Latest version:  {latest_ver}")
+            
+            if not needs_update:
+                click.echo("\n✅ You already have the latest version!")
+                sys.exit(0)
+            
+            click.echo(f"\n🚀 Update available: {local_ver} → {latest_ver}")
+            install_version = latest_ver
         
         # Confirm update
         if not auto:
-            if not click.confirm("\nDo you want to proceed with the installation?"):
+            if not click.confirm(f"\nDo you want to proceed with installing Python {install_version}?"):
                 click.echo("Installation cancelled.")
                 sys.exit(0)
         
@@ -575,18 +611,18 @@ def update(auto):
         # Perform update based on OS
         success = False
         if os_name == 'windows':
-            success = update_python_windows(latest_ver)
+            success = update_python_windows(install_version)
         elif os_name == 'linux':
-            success = update_python_linux(latest_ver)
+            success = update_python_linux(install_version)
         elif os_name == 'darwin':
-            success = update_python_macos(latest_ver)
+            success = update_python_macos(install_version)
         else:
             click.echo(f"❌ Unsupported operating system: {os_name}")
             sys.exit(1)
         
         if success:
             # Show usage instructions (safe, no system modifications)
-            show_python_usage_instructions(latest_ver, os_name)
+            show_python_usage_instructions(install_version, os_name)
         else:
             click.echo("\n⚠️  Installation process encountered issues.")
             click.echo("    Please check the messages above.")
