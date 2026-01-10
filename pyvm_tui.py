@@ -1,24 +1,27 @@
 #!/usr/bin/env python3
 """
 Python Version Manager - TUI Interface
-A beautiful terminal user interface for managing Python versions
+A clean terminal user interface for managing Python versions
 """
 
 import platform
 import sys
 import asyncio
-from typing import Optional
+import subprocess
+from typing import Optional, List
 
 try:
     from textual.app import App, ComposeResult
-    from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
-    from textual.widgets import Header, Footer, Static, Button, Label, ProgressBar, LoadingIndicator
+    from textual.containers import Container, Horizontal, Vertical
+    from textual.widgets import (
+        Header, Footer, Static, Button, Label,
+        LoadingIndicator, ListItem, ListView
+    )
     from textual.binding import Binding
     from textual.screen import Screen
     from textual import work
+    from textual.message import Message
     from rich.text import Text
-    from rich.panel import Panel
-    from rich.table import Table
 except ImportError:
     print("ERROR: TUI mode requires the 'textual' package.")
     print("Install it with: pip install textual")
@@ -30,6 +33,8 @@ from python_version import (
     is_admin,
     check_python_version,
     get_latest_python_info_with_retry,
+    get_active_python_releases,
+    get_installed_python_versions,
     update_python_windows,
     update_python_linux,
     update_python_macos,
@@ -37,153 +42,170 @@ from python_version import (
 )
 
 
-class VersionDisplay(Static):
-    """Widget to display version comparison"""
-    
-    def __init__(self, local_ver: str = "...", latest_ver: str = "...", needs_update: bool = False, **kwargs):
-        super().__init__(**kwargs)
-        self.local_ver = local_ver
-        self.latest_ver = latest_ver
-        self.needs_update = needs_update
-    
-    def compose(self) -> ComposeResult:
-        yield Static(id="version-content")
-    
-    def on_mount(self) -> None:
-        self.update_display()
-    
-    def update_display(self) -> None:
-        table = Table(show_header=False, box=None, padding=(0, 2))
-        table.add_column("Label", style="bold white")
-        table.add_column("Value")
-        
-        table.add_row("Installed:", f"[bold cyan]{self.local_ver}[/bold cyan]")
-        table.add_row("Latest:", f"[bold green]{self.latest_ver}[/bold green]")
-        
-        if self.needs_update:
-            status = "[bold yellow]UPDATE AVAILABLE[/bold yellow]"
-        elif self.latest_ver != "...":
-            status = "[bold green]UP TO DATE[/bold green]"
-        else:
-            status = "[dim]Checking...[/dim]"
-        
-        table.add_row("Status:", status)
-        
-        self.query_one("#version-content", Static).update(table)
-    
-    def set_versions(self, local_ver: str, latest_ver: str, needs_update: bool) -> None:
-        self.local_ver = local_ver
-        self.latest_ver = latest_ver
-        self.needs_update = needs_update
-        self.update_display()
-
-
-class SystemInfoDisplay(Static):
-    """Widget to display system information"""
-    
-    def compose(self) -> ComposeResult:
-        yield Static(id="sysinfo-content")
-    
-    def on_mount(self) -> None:
-        self.update_display()
-    
-    def update_display(self) -> None:
-        os_name, arch = get_os_info()
-        
-        table = Table(show_header=False, box=None, padding=(0, 2))
-        table.add_column("Label", style="bold white")
-        table.add_column("Value", style="cyan")
-        
-        table.add_row("OS:", os_name.upper())
-        table.add_row("Arch:", arch)
-        table.add_row("Executable:", sys.executable)
-        table.add_row("Platform:", platform.platform())
-        table.add_row("Elevated:", "Yes" if is_admin() else "No")
-        
-        self.query_one("#sysinfo-content", Static).update(table)
-
-
 class StatusBar(Static):
     """Status bar for showing messages"""
-    
+
     def __init__(self, **kwargs):
         super().__init__("", **kwargs)
-        self.message = ""
-    
+
     def set_message(self, message: str, style: str = "") -> None:
-        self.message = message
         if style:
             self.update(f"[{style}]{message}[/{style}]")
         else:
             self.update(message)
-    
+
     def clear(self) -> None:
         self.update("")
 
 
+class VersionItem(ListItem):
+    """A selectable version item in a list"""
+
+    def __init__(self, version: str, info: str = "", is_current: bool = False, can_install: bool = False):
+        super().__init__()
+        self.version = version
+        self.info = info
+        self.is_current = is_current
+        self.can_install = can_install
+
+    def compose(self) -> ComposeResult:
+        text = f"{self.version}"
+        if self.is_current:
+            text = f"[cyan bold]{self.version}[/cyan bold] [dim](current)[/dim]"
+        elif self.info:
+            text = f"{self.version} [dim]{self.info}[/dim]"
+        yield Label(text)
+
+
+class InstalledList(ListView):
+    """List of installed Python versions"""
+
+    BINDINGS = [
+        Binding("tab", "focus_next_panel", "Next Panel", show=False),
+        Binding("shift+tab", "focus_prev_panel", "Prev Panel", show=False),
+    ]
+
+    def action_focus_next_panel(self) -> None:
+        self.screen.focus_next_panel()
+
+    def action_focus_prev_panel(self) -> None:
+        self.screen.focus_prev_panel()
+
+
+class AvailableList(ListView):
+    """List of available Python versions - press Enter to install"""
+
+    BINDINGS = [
+        Binding("tab", "focus_next_panel", "Next Panel", show=False),
+        Binding("shift+tab", "focus_prev_panel", "Prev Panel", show=False),
+        Binding("enter", "install_selected", "Install", show=True),
+    ]
+
+    def action_focus_next_panel(self) -> None:
+        self.screen.focus_next_panel()
+
+    def action_focus_prev_panel(self) -> None:
+        self.screen.focus_prev_panel()
+
+    def action_install_selected(self) -> None:
+        if self.highlighted_child and isinstance(self.highlighted_child, VersionItem):
+            version = self.highlighted_child.version
+            self.screen.start_install(version)
+
+
 class MainScreen(Screen):
-    """Main TUI screen"""
-    
+    """Main TUI screen with navigable panels"""
+
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("r", "refresh", "Refresh"),
-        Binding("u", "update_python", "Update"),
-        Binding("i", "show_info", "Info"),
+        Binding("u", "update_latest", "Update"),
+        Binding("1", "focus_installed", "Installed", show=False),
+        Binding("2", "focus_available", "Available", show=False),
         Binding("?", "help", "Help"),
     ]
-    
+
     CSS = """
     MainScreen {
         layout: vertical;
     }
-    
+
     #main-container {
         height: 100%;
         padding: 1 2;
     }
-    
+
     #title-box {
         height: auto;
-        margin-bottom: 1;
         text-align: center;
-        padding: 1 2;
-        background: $surface;
-        border: double $primary;
-        color: $text;
+        padding: 0 2;
+        margin-bottom: 1;
+        border-bottom: solid $primary;
     }
-    
+
     #content-area {
         height: 1fr;
         layout: horizontal;
     }
-    
-    #left-panel {
+
+    .panel {
         width: 1fr;
         height: 100%;
-        padding: 1 2;
         border: solid $primary;
-        margin-right: 1;
+        margin: 0 1;
         background: $surface;
     }
-    
-    #right-panel {
-        width: 1fr;
-        height: 100%;
-        padding: 1 2;
-        border: solid $primary;
-        background: $surface;
+
+    .panel:first-child {
+        margin-left: 0;
     }
-    
+
+    .panel:last-child {
+        margin-right: 0;
+    }
+
     .panel-title {
         text-style: bold;
-        color: $text;
-        margin-bottom: 1;
         text-align: center;
-        background: $surface-darken-1;
         padding: 0 1;
         border-bottom: solid $primary;
+        background: $surface-darken-1;
     }
-    
+
+    .panel-title-focused {
+        background: $primary;
+        color: $background;
+    }
+
+    #installed-list, #available-list {
+        height: 1fr;
+        scrollbar-gutter: stable;
+    }
+
+    #installed-list:focus, #available-list:focus {
+        border: none;
+    }
+
+    #installed-list > ListItem, #available-list > ListItem {
+        padding: 0 1;
+    }
+
+    #installed-list > ListItem:hover, #available-list > ListItem:hover {
+        background: $primary 20%;
+    }
+
+    #installed-list > ListItem.-highlight, #available-list > ListItem.-highlight {
+        background: $primary 40%;
+    }
+
+    #status-panel-container {
+        padding: 1;
+    }
+
+    #status-info {
+        text-align: center;
+    }
+
     #button-area {
         height: auto;
         margin-top: 1;
@@ -191,12 +213,12 @@ class MainScreen(Screen):
         align: center middle;
         padding: 1 0;
     }
-    
+
     Button {
-        margin: 0 2;
-        min-width: 20;
+        margin: 0 1;
+        min-width: 14;
     }
-    
+
     #status-bar {
         height: 1;
         dock: bottom;
@@ -204,363 +226,483 @@ class MainScreen(Screen):
         background: $surface;
         border-top: solid $primary;
     }
-    
+
     #loading {
         height: 3;
         align: center middle;
         display: none;
     }
-    
+
     #loading.visible {
         display: block;
     }
-    
-    .update-available Button#update-btn {
-        background: $success;
+
+    #hint-bar {
+        height: auto;
+        text-align: center;
+        padding: 0;
+        color: $text-muted;
     }
     """
-    
+
     def __init__(self):
         super().__init__()
         self.local_ver: str = "..."
         self.latest_ver: Optional[str] = None
         self.needs_update: bool = False
-    
+        self.installed_versions: List[dict] = []
+        self.available_releases: List[dict] = []
+        self.panels = ["installed-list", "available-list"]
+        self.current_panel_idx = 1  # Start on available
+
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        
+
         with Container(id="main-container"):
             yield Static(
-                "[bold]PYTHON VERSION MANAGER[/bold]\n[dim]v1.2.3 | Side-by-side Installation[/dim]",
+                "[bold]PYTHON VERSION MANAGER[/bold]",
                 id="title-box"
             )
-            
+
             with Container(id="loading"):
                 yield LoadingIndicator()
-                yield Label("Checking for updates...")
-            
+                yield Label("Loading...")
+
+            yield Static(
+                "[dim]Tab: switch panels | Arrow keys: navigate | Enter: install selected | R: refresh | U: update | Q: quit[/dim]",
+                id="hint-bar"
+            )
+
             with Horizontal(id="content-area"):
-                with Vertical(id="left-panel"):
-                    yield Static("VERSION STATUS", classes="panel-title")
-                    yield VersionDisplay(id="version-display")
-                
-                with Vertical(id="right-panel"):
-                    yield Static("SYSTEM INFO", classes="panel-title")
-                    yield SystemInfoDisplay(id="sysinfo-display")
-            
+                with Vertical(classes="panel", id="installed-panel"):
+                    yield Static("INSTALLED", classes="panel-title", id="installed-title")
+                    yield InstalledList(id="installed-list")
+
+                with Vertical(classes="panel", id="available-panel"):
+                    yield Static("AVAILABLE (Enter to install)", classes="panel-title", id="available-title")
+                    yield AvailableList(id="available-list")
+
+                with Vertical(classes="panel", id="status-panel"):
+                    yield Static("STATUS", classes="panel-title", id="status-title")
+                    with Container(id="status-panel-container"):
+                        yield Static(id="status-info")
+
             with Horizontal(id="button-area"):
-                yield Button("Refresh", id="refresh-btn", variant="default")
-                yield Button("Update Python", id="update-btn", variant="primary")
-                yield Button("Quit", id="quit-btn", variant="error")
-            
+                yield Button("Refresh [R]", id="refresh-btn", variant="default")
+                yield Button("Update [U]", id="update-btn", variant="primary")
+                yield Button("Quit [Q]", id="quit-btn", variant="error")
+
             yield StatusBar(id="status-bar")
-        
+
         yield Footer()
-    
+
     def on_mount(self) -> None:
-        """Called when screen is mounted"""
-        self.check_versions()
-    
+        self.refresh_all()
+        # Focus available list by default
+        self.set_timer(0.1, self._focus_available)
+
+    def _focus_available(self) -> None:
+        try:
+            self.query_one("#available-list", AvailableList).focus()
+            self._update_panel_highlights()
+        except Exception:
+            pass
+
+    def focus_next_panel(self) -> None:
+        """Switch to next panel"""
+        self.current_panel_idx = (self.current_panel_idx + 1) % len(self.panels)
+        self._focus_current_panel()
+
+    def focus_prev_panel(self) -> None:
+        """Switch to previous panel"""
+        self.current_panel_idx = (self.current_panel_idx - 1) % len(self.panels)
+        self._focus_current_panel()
+
+    def _focus_current_panel(self) -> None:
+        panel_id = self.panels[self.current_panel_idx]
+        try:
+            self.query_one(f"#{panel_id}").focus()
+            self._update_panel_highlights()
+        except Exception:
+            pass
+
+    def _update_panel_highlights(self) -> None:
+        """Update panel title styling based on focus"""
+        # Reset all
+        for title_id in ["installed-title", "available-title", "status-title"]:
+            try:
+                self.query_one(f"#{title_id}").remove_class("panel-title-focused")
+            except Exception:
+                pass
+
+        # Highlight focused
+        focused = self.focused
+        if focused:
+            if focused.id == "installed-list":
+                self.query_one("#installed-title").add_class("panel-title-focused")
+            elif focused.id == "available-list":
+                self.query_one("#available-title").add_class("panel-title-focused")
+
+    def on_focus(self, event) -> None:
+        self._update_panel_highlights()
+
+    def action_focus_installed(self) -> None:
+        self.current_panel_idx = 0
+        self._focus_current_panel()
+
+    def action_focus_available(self) -> None:
+        self.current_panel_idx = 1
+        self._focus_current_panel()
+
     @work(exclusive=True)
-    async def check_versions(self) -> None:
-        """Check Python versions in background"""
+    async def refresh_all(self) -> None:
+        """Refresh all data"""
         loading = self.query_one("#loading")
         loading.add_class("visible")
-        self.query_one("#status-bar", StatusBar).set_message("Checking for updates...", "dim")
-        
-        # Run version check
+        status_bar = self.query_one("#status-bar", StatusBar)
+        status_bar.set_message("Loading...", "dim")
+
         try:
+            # Check versions
             local_ver, latest_ver, needs_update = await asyncio.to_thread(
-                check_python_version, True  # silent=True
+                check_python_version, True
             )
-            
             self.local_ver = local_ver
             self.latest_ver = latest_ver
             self.needs_update = needs_update
-            
-            # Update display
-            version_display = self.query_one("#version-display", VersionDisplay)
-            version_display.set_versions(
-                local_ver,
-                latest_ver or "Unknown",
-                needs_update
-            )
-            
+
+            # Get installed versions
+            self.installed_versions = await asyncio.to_thread(get_installed_python_versions)
+            await self._populate_installed_list()
+
+            # Get available releases
+            self.available_releases = await asyncio.to_thread(get_active_python_releases)
+            await self._populate_available_list()
+
+            # Update status panel
+            status_info = self.query_one("#status-info", Static)
             if needs_update:
-                self.query_one("#status-bar", StatusBar).set_message(
-                    f"Update available: {local_ver} → {latest_ver}", "yellow"
+                status_info.update(
+                    f"[bold]Current:[/bold]\n[cyan]{local_ver}[/cyan]\n\n"
+                    f"[bold]Latest:[/bold]\n[green]{latest_ver}[/green]\n\n"
+                    f"[yellow bold]Update available![/yellow bold]\n"
+                    f"[dim]Press U to update[/dim]"
                 )
-                self.add_class("update-available")
+                status_bar.set_message(f"Update available: {local_ver} -> {latest_ver}", "yellow")
             else:
-                self.query_one("#status-bar", StatusBar).set_message(
-                    "You're running the latest version!", "green"
+                status_info.update(
+                    f"[bold]Current:[/bold]\n[cyan]{local_ver}[/cyan]\n\n"
+                    f"[bold]Latest:[/bold]\n[green]{latest_ver}[/green]\n\n"
+                    f"[green bold]Up to date[/green bold]"
                 )
-                
+                status_bar.set_message("Up to date", "green")
+
         except Exception as e:
-            self.query_one("#status-bar", StatusBar).set_message(
-                f"Error checking versions: {e}", "red"
-            )
+            status_bar.set_message(f"Error: {e}", "red")
         finally:
             loading.remove_class("visible")
-    
-    @work(exclusive=True)
-    async def do_update(self) -> None:
-        """Perform Python update in background"""
-        if not self.latest_ver:
-            self.query_one("#status-bar", StatusBar).set_message(
-                "No version info available. Please refresh first.", "red"
-            )
+
+    async def _populate_installed_list(self) -> None:
+        """Populate the installed versions list"""
+        installed_list = self.query_one("#installed-list", InstalledList)
+        await installed_list.clear()
+
+        if not self.installed_versions:
+            await installed_list.append(VersionItem("No versions detected", "", False, False))
             return
+
+        for v in self.installed_versions:
+            ver = v.get('version', 'Unknown')
+            path = v.get('path', '')
+            is_current = v.get('default', False)
+            # Shorten path for display
+            short_path = path.split('/')[-1] if '/' in path else path.split('\\')[-1] if '\\' in path else ""
+            await installed_list.append(VersionItem(ver, short_path, is_current, False))
+
+    async def _populate_available_list(self) -> None:
+        """Populate the available versions list"""
+        available_list = self.query_one("#available-list", AvailableList)
+        await available_list.clear()
+
+        if not self.available_releases:
+            await available_list.append(VersionItem("Could not fetch releases", "", False, False))
+            return
+
+        for rel in self.available_releases:
+            version = rel.get('latest_version', '')
+            status = rel.get('status', '')
+
+            # Shorten status
+            if 'pre-release' in status.lower():
+                status = 'prerelease'
+            elif 'bugfix' in status.lower():
+                status = 'active'
+            elif 'security' in status.lower():
+                status = 'security'
+            elif 'end of life' in status.lower():
+                status = 'EOL'
+
+            if version:
+                is_current = version.startswith('.'.join(self.local_ver.split('.')[:2]))
+                await available_list.append(VersionItem(version, status, is_current, True))
+
+        # Select first item
+        if available_list.children:
+            available_list.index = 0
+
+    def start_install(self, version: str) -> None:
+        """Start installing a version (called from AvailableList)"""
+        self.run_install_with_suspend(version)
+
+    def run_install_with_suspend(self, version: str) -> None:
+        """Run installation with TUI suspended so terminal output is visible"""
+        from textual.app import SuspendNotSupported
         
-        loading = self.query_one("#loading")
-        loading.add_class("visible")
-        
-        status_bar = self.query_one("#status-bar", StatusBar)
-        status_bar.set_message(f"Installing Python {self.latest_ver}...", "yellow")
-        
-        try:
-            os_name, _ = get_os_info()
-            
-            # Run update based on OS
+        os_name, _ = get_os_info()
+        success = False
+
+        def do_installation():
+            print(f"\n{'='*50}")
+            print(f"Installing Python {version}")
+            print(f"{'='*50}\n")
+
             if os_name == 'windows':
-                success = await asyncio.to_thread(update_python_windows, self.latest_ver)
+                return update_python_windows(version)
             elif os_name == 'linux':
-                success = await asyncio.to_thread(update_python_linux, self.latest_ver)
+                return update_python_linux(version)
             elif os_name == 'darwin':
-                success = await asyncio.to_thread(update_python_macos, self.latest_ver)
+                return update_python_macos(version)
             else:
-                status_bar.set_message(f"Unsupported OS: {os_name}", "red")
-                return
-            
-            if success:
-                status_bar.set_message(
-                    f"Python {self.latest_ver} installed successfully", "green"
-                )
-                # Show usage instructions
-                self.app.push_screen(SuccessScreen(self.latest_ver, os_name))
-            else:
-                status_bar.set_message(
-                    "Installation encountered issues. Check terminal output.", "yellow"
-                )
-                
-        except Exception as e:
-            status_bar.set_message(f"Error during update: {e}", "red")
-        finally:
-            loading.remove_class("visible")
-    
+                print(f"Unsupported OS: {os_name}")
+                return False
+
+        try:
+            # Suspend TUI, run installation, then resume
+            with self.app.suspend():
+                success = do_installation()
+                print(f"\n{'='*50}")
+                if success:
+                    print(f"Installation complete!")
+                else:
+                    print(f"Installation may have had issues.")
+                print(f"{'='*50}")
+                print("\nPress Enter to return to TUI...")
+                try:
+                    input()
+                except EOFError:
+                    pass
+        except SuspendNotSupported:
+            # Fallback for environments that don't support suspend (e.g., Textual Web)
+            status_bar = self.query_one("#status-bar", StatusBar)
+            status_bar.set_message(f"Installing Python {version}... (check terminal)", "yellow")
+            success = do_installation()
+
+        # Update status and refresh after resuming
+        status_bar = self.query_one("#status-bar", StatusBar)
+        if success:
+            status_bar.set_message(f"Python {version} installed successfully!", "green")
+            self.app.push_screen(SuccessScreen(version, os_name))
+        else:
+            status_bar.set_message("Installation had issues.", "yellow")
+
+        # Refresh to show updated installed versions
+        self.refresh_all()
+
+    @work(exclusive=True)
+    async def do_install(self, version: str) -> None:
+        """Install a specific Python version (async wrapper that suspends TUI)"""
+        # Use the synchronous suspend method
+        self.run_install_with_suspend(version)
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses"""
         if event.button.id == "refresh-btn":
             self.action_refresh()
         elif event.button.id == "update-btn":
-            self.action_update_python()
+            self.action_update_latest()
         elif event.button.id == "quit-btn":
             self.action_quit()
-    
+
     def action_refresh(self) -> None:
-        """Refresh version information"""
-        self.check_versions()
-    
-    def action_update_python(self) -> None:
-        """Start Python update"""
-        if not self.needs_update:
-            self.query_one("#status-bar", StatusBar).set_message(
-                "Already up to date! No update needed.", "green"
-            )
+        self.refresh_all()
+
+    def action_update_latest(self) -> None:
+        status_bar = self.query_one("#status-bar", StatusBar)
+
+        if not self.latest_ver:
+            status_bar.set_message("No version info yet. Please wait or press R to refresh.", "red")
             return
-        self.do_update()
-    
+
+        status_bar.set_message(f"Starting update to Python {self.latest_ver}...", "yellow")
+        self.do_install(self.latest_ver)
+
     def action_quit(self) -> None:
-        """Quit the application"""
         self.app.exit()
-    
+
     def action_help(self) -> None:
-        """Show help"""
         self.app.push_screen(HelpScreen())
 
 
 class SuccessScreen(Screen):
     """Screen shown after successful installation"""
-    
+
     BINDINGS = [
         Binding("escape", "go_back", "Back"),
+        Binding("enter", "go_back", "Back"),
         Binding("q", "quit", "Quit"),
     ]
-    
+
     CSS = """
     SuccessScreen {
         align: center middle;
     }
-    
+
     #success-container {
-        width: 70;
+        width: 65;
         height: auto;
-        padding: 2 3;
-        border: double $success;
+        padding: 1 2;
+        border: solid $success;
         background: $surface;
     }
-    
+
     #success-title {
         text-align: center;
         text-style: bold;
         color: $success;
-        margin-bottom: 1;
         padding: 1;
-        background: $surface-darken-1;
+        margin-bottom: 1;
         border-bottom: solid $success;
     }
-    
-    #instructions {
-        margin: 1 0;
-    }
-    
+
     #back-btn {
         margin-top: 1;
         width: 100%;
     }
     """
-    
+
     def __init__(self, version: str, os_name: str):
         super().__init__()
         self.version = version
         self.os_name = os_name
-    
+
     def compose(self) -> ComposeResult:
-        # Extract major.minor
         parts = self.version.split('.')
         major_minor = f"{parts[0]}.{parts[1]}" if len(parts) >= 2 else self.version
-        
+
         with Container(id="success-container"):
             yield Static("INSTALLATION COMPLETE", id="success-title")
-            yield Static(f"Python {self.version} has been installed successfully.")
-            
-            # OS-specific instructions
+            yield Static(f"Python {self.version} installed successfully.\n")
+
             if self.os_name in ('linux', 'darwin'):
-                instructions = f"""
-[bold white]Usage Instructions:[/bold white]
+                instructions = f"""[bold]Usage:[/bold]
+  python{major_minor} script.py
+  python{major_minor} -m venv myenv
+  python{major_minor} --version"""
+            else:
+                instructions = f"""[bold]Usage:[/bold]
+  py -{major_minor} script.py
+  py -{major_minor} -m venv myenv
+  py --list"""
 
-[cyan]Run scripts:[/cyan]
-  $ python{major_minor} your_script.py
+            yield Static(instructions)
+            yield Static("\n[dim]Previous version remains as system default.[/dim]")
+            yield Button("Back [Enter]", id="back-btn")
 
-[cyan]Create virtual environment:[/cyan]
-  $ python{major_minor} -m venv myproject
-  $ source myproject/bin/activate
-
-[cyan]Verify installation:[/cyan]
-  $ python{major_minor} --version
-"""
-            else:  # Windows
-                instructions = f"""
-[bold white]Usage Instructions:[/bold white]
-
-[cyan]Use Python Launcher:[/cyan]
-  > py -{major_minor} your_script.py
-
-[cyan]List all versions:[/cyan]
-  > py --list
-
-[cyan]Create virtual environment:[/cyan]
-  > py -{major_minor} -m venv myproject
-  > myproject\\Scripts\\activate
-"""
-            
-            yield Static(instructions, id="instructions")
-            yield Static("[dim]Previous Python version remains as system default.[/dim]")
-            yield Button("Back", id="back-btn")
-    
     def on_button_pressed(self, event: Button.Pressed) -> None:
         self.action_go_back()
-    
+
     def action_go_back(self) -> None:
         self.app.pop_screen()
-    
+
     def action_quit(self) -> None:
         self.app.exit()
 
 
 class HelpScreen(Screen):
-    """Help screen with keyboard shortcuts"""
-    
+    """Help screen"""
+
     BINDINGS = [
         Binding("escape", "go_back", "Back"),
+        Binding("enter", "go_back", "Back"),
         Binding("q", "go_back", "Back"),
     ]
-    
+
     CSS = """
     HelpScreen {
         align: center middle;
     }
-    
+
     #help-container {
-        width: 60;
+        width: 55;
         height: auto;
-        padding: 2 3;
-        border: double $primary;
+        padding: 1 2;
+        border: solid $primary;
         background: $surface;
     }
-    
+
     #help-title {
         text-align: center;
         text-style: bold;
-        margin-bottom: 1;
-        color: $text;
         padding: 1;
-        background: $surface-darken-1;
+        margin-bottom: 1;
         border-bottom: solid $primary;
     }
-    
+
     #close-btn {
         width: 100%;
         margin-top: 1;
     }
     """
-    
+
     def compose(self) -> ComposeResult:
         with Container(id="help-container"):
             yield Static("KEYBOARD SHORTCUTS", id="help-title")
-            
+
             help_text = """
-[bold cyan]Navigation[/bold cyan]
-  [bold white]R[/bold white]  Refresh version info
-  [bold white]U[/bold white]  Update Python
-  [bold white]I[/bold white]  Show system info
-  [bold white]?[/bold white]  Show this help
-  [bold white]Q[/bold white]  Quit application
+[bold]Navigation[/bold]
+  Tab       Next panel
+  Shift+Tab Previous panel
+  1 / 2     Jump to Installed / Available
+  Up/Down   Move in list
 
-[bold cyan]CLI Commands[/bold cyan]
-  pyvm check   Check version
-  pyvm update  Update Python
-  pyvm info    System info
-  pyvm tui     This interface
+[bold]Actions[/bold]
+  Enter     Install selected version
+  R         Refresh data
+  U         Update to latest version
+  ?         This help
+  Q         Quit
 
-[dim]Press Escape or Q to close[/dim]
+[bold]CLI Commands[/bold]
+  pyvm list      List versions
+  pyvm install   Install version
+  pyvm update    Update to latest
+  pyvm check     Check for updates
 """
             yield Static(help_text)
-            yield Button("Close", id="close-btn")
-    
+            yield Button("Close [Enter]", id="close-btn")
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         self.action_go_back()
-    
+
     def action_go_back(self) -> None:
         self.app.pop_screen()
 
 
 class PyvmTUI(App):
     """Main TUI Application"""
-    
+
     TITLE = "Python Version Manager"
-    SUB_TITLE = "pyvm-updater"
-    
+    SUB_TITLE = "pyvm"
+
     CSS = """
     Screen {
         background: $background;
     }
     """
-    
+
     SCREENS = {
         "main": MainScreen,
     }
-    
+
     def on_mount(self) -> None:
         self.push_screen("main")
 

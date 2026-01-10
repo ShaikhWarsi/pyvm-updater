@@ -84,6 +84,148 @@ def validate_version_string(version_str: str) -> bool:
     return bool(re.match(pattern, version_str))
 
 
+def get_installed_python_versions() -> List[dict]:
+    """Detect Python versions installed on the system"""
+    versions = []
+    os_name, _ = get_os_info()
+    found = set()  # Track versions we've already found
+    
+    if os_name == 'windows':
+        # Use py launcher to list versions
+        try:
+            result = subprocess.run(
+                ['py', '--list'],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            if result.returncode == 0:
+                for line in result.stdout.strip().split('\n'):
+                    # Format: " -V:3.12 *" or " -3.12-64"
+                    line = line.strip()
+                    match = re.search(r'-(\d+\.\d+)', line)
+                    if match:
+                        ver = match.group(1)
+                        is_default = '*' in line
+                        if ver not in found:
+                            found.add(ver)
+                            versions.append({
+                                'version': ver,
+                                'path': None,
+                                'default': is_default
+                            })
+        except FileNotFoundError:
+            pass
+    else:
+        # Unix-like: search multiple sources
+        
+        # 1. Check mise installed versions
+        mise_python_dir = os.path.expanduser('~/.local/share/mise/installs/python')
+        if os.path.isdir(mise_python_dir):
+            try:
+                for entry in os.listdir(mise_python_dir):
+                    if re.match(r'^\d+\.\d+', entry):
+                        ver = entry
+                        if ver not in found:
+                            full_path = os.path.join(mise_python_dir, entry, 'bin', 'python3')
+                            if os.path.exists(full_path):
+                                found.add(ver)
+                                versions.append({
+                                    'version': ver,
+                                    'path': full_path,
+                                    'default': full_path == sys.executable or sys.executable.startswith(os.path.join(mise_python_dir, entry))
+                                })
+            except PermissionError:
+                pass
+        
+        # 2. Check pyenv installed versions
+        pyenv_root = os.environ.get('PYENV_ROOT', os.path.expanduser('~/.pyenv'))
+        pyenv_versions_dir = os.path.join(pyenv_root, 'versions')
+        if os.path.isdir(pyenv_versions_dir):
+            try:
+                for entry in os.listdir(pyenv_versions_dir):
+                    if re.match(r'^\d+\.\d+', entry):
+                        ver = entry
+                        if ver not in found:
+                            full_path = os.path.join(pyenv_versions_dir, entry, 'bin', 'python3')
+                            if os.path.exists(full_path):
+                                found.add(ver)
+                                versions.append({
+                                    'version': ver,
+                                    'path': full_path,
+                                    'default': full_path == sys.executable
+                                })
+            except PermissionError:
+                pass
+        
+        # 3. Check system paths for python executables
+        search_paths = ['/usr/bin', '/usr/local/bin', '/opt/homebrew/bin', os.path.expanduser('~/.local/bin')]
+        
+        for path in search_paths:
+            if os.path.isdir(path):
+                try:
+                    for entry in os.listdir(path):
+                        match = re.match(r'^python(\d+\.\d+)$', entry)
+                        if match:
+                            ver = match.group(1)
+                            if ver not in found:
+                                found.add(ver)
+                                full_path = os.path.join(path, entry)
+                                # Check if it's actually executable
+                                if os.access(full_path, os.X_OK):
+                                    # Get full version
+                                    try:
+                                        result = subprocess.run(
+                                            [full_path, '--version'],
+                                            capture_output=True,
+                                            text=True,
+                                            check=False,
+                                            timeout=5
+                                        )
+                                        if result.returncode == 0:
+                                            full_ver = result.stdout.strip().replace('Python ', '')
+                                            versions.append({
+                                                'version': full_ver,
+                                                'path': full_path,
+                                                'default': full_path == sys.executable
+                                            })
+                                    except Exception:
+                                        versions.append({
+                                            'version': ver,
+                                            'path': full_path,
+                                            'default': False
+                                        })
+                except PermissionError:
+                    pass
+    
+    # Sort by version descending
+    def version_key(x):
+        try:
+            return [int(p) for p in x['version'].split('.')[:3]]
+        except ValueError:
+            return [0, 0, 0]
+    versions.sort(key=version_key, reverse=True)
+    
+    # Ensure current Python is in the list
+    current_ver = platform.python_version()
+    found_current = any(v['version'] == current_ver for v in versions)
+    
+    if not found_current:
+        versions.insert(0, {
+            'version': current_ver,
+            'path': sys.executable,
+            'default': True
+        })
+    else:
+        # Mark current Python as default
+        for v in versions:
+            if v['version'] == current_ver:
+                v['default'] = True
+                break
+    
+    return versions
+
+
 def get_latest_python_info_with_retry() -> Tuple[Optional[str], Optional[str]]:
     """Fetch the latest Python version with retry logic"""
     for attempt in range(MAX_RETRIES):
@@ -403,8 +545,8 @@ def update_python_windows(version_str: str) -> bool:
 
 
 def update_python_linux(version_str: str) -> bool:
-    """Install Python on Linux using package manager (does NOT modify system defaults)"""
-    print("\n🐧 Linux detected")
+    """Install Python on Linux using mise, pyenv, or package manager"""
+    print("\n[Linux] Installing Python...")
     
     # Validate version string
     if not validate_version_string(version_str):
@@ -422,15 +564,68 @@ def update_python_linux(version_str: str) -> bool:
         print(f"Error parsing version: {e}")
         return False
     
-    # Detect package manager
+    # Priority 1: Use mise if available (modern, no sudo needed)
+    if shutil.which('mise'):
+        print("Using mise to install Python...")
+        print(f"Installing Python {version_str}...")
+        
+        try:
+            # Install the Python version
+            result = subprocess.run(
+                ["mise", "install", f"python@{version_str}"],
+                check=False,
+                capture_output=False
+            )
+            
+            if result.returncode != 0:
+                print(f"Warning: mise install returned code {result.returncode}")
+                # Try with just major.minor
+                print(f"Trying with python@{major_minor}...")
+                result = subprocess.run(
+                    ["mise", "install", f"python@{major_minor}"],
+                    check=False,
+                    capture_output=False
+                )
+            
+            if result.returncode == 0:
+                print(f"\n[OK] Python {version_str} installed via mise!")
+                print(f"\nTo use this version:")
+                print(f"  mise use python@{version_str}     # Use in current directory")
+                print(f"  mise use -g python@{version_str}  # Set as global default")
+                return True
+            else:
+                print("mise installation failed, trying other methods...")
+        except Exception as e:
+            print(f"mise error: {e}")
+    
+    # Priority 2: Use pyenv if available
+    if shutil.which('pyenv'):
+        print("Using pyenv to install Python...")
+        
+        try:
+            result = subprocess.run(
+                ["pyenv", "install", version_str],
+                check=False,
+                capture_output=False
+            )
+            
+            if result.returncode == 0:
+                print(f"\n[OK] Python {version_str} installed via pyenv!")
+                print(f"\nTo use this version:")
+                print(f"  pyenv local {version_str}   # Use in current directory")
+                print(f"  pyenv global {version_str}  # Set as global default")
+                return True
+            else:
+                print("pyenv installation failed, trying other methods...")
+        except Exception as e:
+            print(f"pyenv error: {e}")
+    
+    # Priority 3: Use apt (deadsnakes PPA)
     if shutil.which('apt'):
         print("Using apt package manager...")
-        print("\n⚠️  This requires sudo privileges to install Python.")
-        print("⚠️  This will add the deadsnakes PPA (third-party repository).")
-        print("\n⚠️  IMPORTANT: This will NOT modify your system's default Python.")
-        print("    Your existing Python will remain unchanged.")
+        print("\nThis requires sudo privileges and adds the deadsnakes PPA.")
+        print("Your existing Python will remain unchanged.")
         
-        # Use safer subprocess approach - no shell=True
         commands = [
             ["sudo", "apt", "update"],
             ["sudo", "apt", "install", "-y", "software-properties-common"],
@@ -445,54 +640,43 @@ def update_python_linux(version_str: str) -> bool:
             try:
                 result = subprocess.run(cmd, check=False, capture_output=False)
                 if result.returncode != 0:
-                    print(f"⚠️  Command failed with exit code {result.returncode}: {' '.join(cmd)}")
-                    print("Continuing anyway...")
-            except FileNotFoundError:
-                print(f"Error: Command not found: {cmd[0]}")
-                return False
+                    print(f"Warning: Command returned {result.returncode}")
             except Exception as e:
-                print(f"Error running command: {e}")
+                print(f"Error: {e}")
                 return False
         
-        # Verify installation
         python_path = f"/usr/bin/python{major_minor}"
-        if not os.path.exists(python_path):
-            print(f"⚠️  Warning: {python_path} not found after installation")
+        if os.path.exists(python_path):
+            print(f"\n[OK] Python {major_minor} installed at {python_path}")
+            return True
+        else:
+            print(f"Warning: {python_path} not found")
             return False
-        
-        print(f"\n✅ Python {major_minor} installed successfully at {python_path}")
-        print(f"\n💡 Your system Python remains unchanged. Use 'python{major_minor}' to access the new version.")
-        return True
     
-    elif shutil.which('yum') or shutil.which('dnf'):
+    elif shutil.which('dnf') or shutil.which('yum'):
         pkg_mgr = 'dnf' if shutil.which('dnf') else 'yum'
-        print(f"Using {pkg_mgr} package manager...")
-        print("\n⚠️  This requires sudo privileges.")
-        print(f"\nPlease run manually:")
-        print(f"  sudo {pkg_mgr} install python3")
-        print(f"\nNote: Specific version {version_str} may not be available via {pkg_mgr}")
-        print("Consider using pyenv for version-specific installations.")
+        print(f"Using {pkg_mgr}...")
+        print(f"\nRun manually: sudo {pkg_mgr} install python3")
+        print("Consider installing mise or pyenv for version control.")
         return False
     
     else:
-        print("No supported package manager found (apt, yum, or dnf).")
-        print("\n📦 Recommended: Install pyenv for easy Python version management")
-        print("Visit: https://github.com/pyenv/pyenv#installation")
-        print("\nPyenv installation (quick):")
-        print("  curl https://pyenv.run | bash")
-        print(f"  pyenv install {version_str}")
+        print("No package manager found.")
+        print("\nRecommended: Install mise for easy version management")
+        print("  curl https://mise.run | sh")
+        print(f"  mise install python@{version_str}")
         return False
 
 def update_python_macos(version_str: str) -> bool:
-    """Update Python on macOS using Homebrew or official installer"""
-    print("\n🍎 macOS detected")
+    """Update Python on macOS using mise, pyenv, Homebrew, or official installer"""
+    print("\n[macOS] Installing Python...")
     
     # Validate version string
     if not validate_version_string(version_str):
         print(f"Error: Invalid version string: {version_str}")
         return False
     
-    # Extract major.minor version for reuse in both branches
+    # Extract major.minor version for reuse
     try:
         parts = version_str.split('.')
         if len(parts) < 2:
@@ -503,6 +687,60 @@ def update_python_macos(version_str: str) -> bool:
         print(f"Error parsing version: {e}")
         return False
     
+    # Priority 1: Use mise if available
+    if shutil.which('mise'):
+        print("Using mise to install Python...")
+        print(f"Installing Python {version_str}...")
+        
+        try:
+            result = subprocess.run(
+                ["mise", "install", f"python@{version_str}"],
+                check=False,
+                capture_output=False
+            )
+            
+            if result.returncode != 0:
+                print(f"Trying with python@{major_minor}...")
+                result = subprocess.run(
+                    ["mise", "install", f"python@{major_minor}"],
+                    check=False,
+                    capture_output=False
+                )
+            
+            if result.returncode == 0:
+                print(f"\n[OK] Python {version_str} installed via mise!")
+                print(f"\nTo use this version:")
+                print(f"  mise use python@{version_str}     # Use in current directory")
+                print(f"  mise use -g python@{version_str}  # Set as global default")
+                return True
+            else:
+                print("mise installation failed, trying other methods...")
+        except Exception as e:
+            print(f"mise error: {e}")
+    
+    # Priority 2: Use pyenv if available
+    if shutil.which('pyenv'):
+        print("Using pyenv to install Python...")
+        
+        try:
+            result = subprocess.run(
+                ["pyenv", "install", version_str],
+                check=False,
+                capture_output=False
+            )
+            
+            if result.returncode == 0:
+                print(f"\n[OK] Python {version_str} installed via pyenv!")
+                print(f"\nTo use this version:")
+                print(f"  pyenv local {version_str}   # Use in current directory")
+                print(f"  pyenv global {version_str}  # Set as global default")
+                return True
+            else:
+                print("pyenv installation failed, trying other methods...")
+        except Exception as e:
+            print(f"pyenv error: {e}")
+    
+    # Priority 3: Use Homebrew
     if shutil.which('brew'):
         print("Using Homebrew...")
         
@@ -519,17 +757,17 @@ def update_python_macos(version_str: str) -> bool:
             result = subprocess.run(["brew", "install", formula_name], check=False, capture_output=True, text=True)
             
             if result.returncode == 0:
-                print(f"✅ Python {version_str} installed successfully via Homebrew")
-                print(f"\n💡 Note: Homebrew installs the latest patch version of {major_minor}.")
-                print(f"   The exact version {version_str} may differ slightly.")
+                print(f"[OK] Python {version_str} installed successfully via Homebrew")
+                print(f"\nNote: Homebrew installs the latest patch version of {major_minor}.")
+                print(f"The exact version {version_str} may differ slightly.")
                 return True
             else:
                 # If specific version not available, provide download link
-                print(f"⚠️  Homebrew formula '{formula_name}' may not be available.")
-                print(f"   Homebrew typically installs the latest patch version of {major_minor}.")
-                print("\n📥 Alternative: Install via official installer from python.org")
+                print(f"Homebrew formula '{formula_name}' may not be available.")
+                print(f"Homebrew typically installs the latest patch version of {major_minor}.")
+                print("\nAlternative: Install via official installer from python.org")
                 url_version = version_str.replace('.', '-')
-                print(f"   https://www.python.org/downloads/release/python-{url_version}/")
+                print(f"  https://www.python.org/downloads/release/python-{url_version}/")
                 return False
             
         except FileNotFoundError:
@@ -538,19 +776,18 @@ def update_python_macos(version_str: str) -> bool:
         except Exception as e:
             print(f"Error running Homebrew: {e}")
             return False
-    else:
-        print("Homebrew not found.")
-        print("\n📥 Option 1: Install via official installer")
-        
-        # Fix URL construction - proper format is "3-11-5" not "3115"
-        url_version = version_str.replace('.', '-')
-        print(f"   https://www.python.org/downloads/release/python-{url_version}/")
-        
-        print("\n📦 Option 2: Install Homebrew first")
-        print("   /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"")
-        print(f"   Then run: brew install python@{major_minor}")
-        
-        return False
+    
+    # No package manager found
+    print("No package manager found (mise, pyenv, or Homebrew).")
+    print("\nOption 1: Install via official installer")
+    url_version = version_str.replace('.', '-')
+    print(f"  https://www.python.org/downloads/release/python-{url_version}/")
+    
+    print("\nOption 2: Install mise (recommended)")
+    print("  curl https://mise.run | sh")
+    print(f"  mise install python@{version_str}")
+    
+    return False
 
 
 def check_python_version(silent: bool = False) -> Tuple[str, Optional[str], bool]:
