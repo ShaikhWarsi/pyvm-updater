@@ -406,57 +406,46 @@ def get_available_python_versions(limit: int = 50) -> List[dict]:
 
 
 def download_file(url: str, destination: str) -> bool:
-    """Download a file with progress indication and integrity checking"""
+    """Download a file with Click progress bar"""
     try:
-        # Validate URL
-        if not url.startswith(('https://', 'http://')):
-            print(f"Error: Invalid URL scheme: {url}")
+        if not url.startswith(("http://", "https://")):
+            click.echo(f"❌ Invalid URL: {url}")
             return False
-            
+
         response = requests.get(url, stream=True, timeout=DOWNLOAD_TIMEOUT)
         response.raise_for_status()
-        
-        total_size = int(response.headers.get('content-length', 0))
-        block_size = 8192
-        downloaded = 0
-        
-        with open(destination, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=block_size):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    if total_size:
-                        percent = (downloaded / total_size) * 100
-                        print(f"\rDownloading: {percent:.1f}% ({downloaded}/{total_size} bytes)", end='', flush=True)
-                    else:
-                        # No content-length header
-                        print(f"\rDownloading: {downloaded} bytes", end='', flush=True)
-        
-        print()  # New line after progress
-        
-        # Verify file was downloaded
+
+        total_size = int(response.headers.get("content-length", 0))
+        chunk_size = 8192
+
+        with open(destination, "wb") as f:
+            with click.progressbar(
+                length=total_size,
+                label="⬇ Downloading",
+                show_eta=True,
+                show_percent=True,
+            ) as bar:
+                for chunk in response.iter_content(chunk_size=chunk_size):
+                    if chunk:
+                        f.write(chunk)
+                        bar.update(len(chunk))
+
         if not os.path.exists(destination):
-            print("Error: Downloaded file not found")
+            click.echo("❌ Download failed: file not found")
             return False
-            
-        file_size = os.path.getsize(destination)
-        if total_size and file_size != total_size:
-            print(f"Warning: Downloaded file size ({file_size}) doesn't match expected size ({total_size})")
-            
+
         return True
-        
+
     except requests.Timeout:
-        print("\nError: Download timed out. Please check your internet connection.")
+        click.echo("❌ Download timed out")
         return False
     except requests.RequestException as e:
-        print(f"\nError: Download failed: {e}")
-        return False
-    except IOError as e:
-        print(f"\nError: Could not write to file {destination}: {e}")
+        click.echo(f"❌ Download error: {e}")
         return False
     except Exception as e:
-        print(f"\nError: Unexpected error during download: {e}")
+        click.echo(f"❌ Unexpected error: {e}")
         return False
+
 
 
 def update_python_windows(version_str: str) -> bool:
