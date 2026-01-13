@@ -10,6 +10,8 @@ Requirements:
     pip install requests beautifulsoup4 packaging click
 """
 
+from __future__ import annotations
+
 import json
 import os
 import platform
@@ -20,7 +22,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Optional, cast
 
 try:
     import click
@@ -70,18 +72,18 @@ class HistoryManager:
             print(f"Warning: Could not save history: {e}")
 
     @staticmethod
-    def get_history() -> List[Dict[Any, Any]]:
+    def get_history() -> list[dict[Any, Any]]:
         """Load history from the history file"""
         if not HISTORY_FILE.exists():
             return []
         try:
             with open(HISTORY_FILE) as f:
-                return cast(List[Dict[Any, Any]], json.load(f))
+                return cast(list[dict[Any, Any]], json.load(f))
         except Exception:
             return []
 
     @staticmethod
-    def get_last_action() -> Optional[Dict[Any, Any]]:
+    def get_last_action() -> Optional[dict[Any, Any]]:
         """Get the last successful installation/update action"""
         history = HistoryManager.get_history()
         if not history:
@@ -962,7 +964,7 @@ def remove_python_windows(version_str: str) -> bool:
     print(f"Running uninstaller: {installer_path} /uninstall")
     try:
         # Run uninstaller (interactive)
-        result = subprocess.run([installer_path, "/uninstall"], check=False, capture_output=True, text=True)
+        result = subprocess.run([installer_path, "/uninstall"], check=False)
 
         # Cleanup downloaded installer after use
         try:
@@ -1434,6 +1436,7 @@ def remove(version, yes):
             sys.exit(1)
 
         if success:
+            HistoryManager.save_history("remove", version)
             click.echo(f"\nSuccessfully removed Python {version}")
         else:
             click.echo("\nRemoval encountered issues. Check messages above.")
