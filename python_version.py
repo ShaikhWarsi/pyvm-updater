@@ -23,7 +23,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 try:
     import click
@@ -101,7 +101,7 @@ def calculate_sha256(file_path: str) -> str:
     return sha256.hexdigest()
 
 
-def fetch_remote_sha256(checksum_url: str) -> Optional[str]:
+def fetch_remote_sha256(checksum_url: str) -> str | None:
     """Fetch SHA256 checksum from python.org"""
     try:
         response = requests.get(checksum_url, timeout=REQUEST_TIMEOUT)
