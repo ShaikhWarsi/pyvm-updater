@@ -12,6 +12,7 @@ Requirements:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import platform
@@ -21,11 +22,8 @@ import subprocess
 import sys
 import tempfile
 import time
-import hashlib
 from pathlib import Path
-from typing import Any, cast
-from typing import Optional
-
+from typing import Any, Optional, cast
 
 try:
     import click
@@ -92,6 +90,7 @@ class HistoryManager:
         if not history:
             return None
         return history[-1]
+
 
 def calculate_sha256(file_path: str) -> str:
     """Calculate SHA256 checksum of a file"""
