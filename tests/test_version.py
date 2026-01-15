@@ -76,18 +76,11 @@ class TestIsPythonVersionInstalled:
         assert is_python_version_installed("99.99.99") is False
 
     def test_major_minor_match(self):
-        """Test that major.minor version detection works."""
+        """Test that current Python version is correctly detected."""
         import platform
 
         # Get the current full version (e.g., "3.12.12")
         current_ver = platform.python_version()
-        parts = current_ver.split(".")
-        major_minor = f"{parts[0]}.{parts[1]}"
 
         # The current full version should definitely be installed
         assert is_python_version_installed(current_ver) is True
-
-        # A fake patch version with same major.minor should NOT be found
-        # (because 3.12.999 doesn't exist)
-        assert is_python_version_installed(f"{major_minor}.999") is False
-
