@@ -173,18 +173,17 @@ jobs:
       
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install pytest pytest-cov requests beautifulsoup4 packaging click textual
-          pip install -e .
-      
-      - name: Verify installation
-        run: |
-          python -c "import pyvm_updater; print(f'pyvm_updater version: {pyvm_updater.__version__}')"
-          python -c "from pyvm_updater.history import HistoryManager; print('HistoryManager imported successfully')"
+          python -m pip install --upgrade pip setuptools wheel
+          pip install pytest pytest-cov
+          pip install .
       
       - name: Run tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
         run: |
-          pytest tests/ -v --tb=long
+          python -c "import sys; print('Python path:', sys.path)"
+          python -c "import pyvm_updater; print('Version:', pyvm_updater.__version__)"
+          pytest tests/ -v --tb=short
 
   # ============================================
   # Summary Job - Reports overall status
