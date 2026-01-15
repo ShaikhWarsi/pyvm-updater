@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-01-15
+
+### Added
+* **Virtual Environment Management**: New `pyvm venv` command group
+  * `pyvm venv create <name>` creates a new venv with optional Python version
+  * `pyvm venv list` shows all managed virtual environments
+  * `pyvm venv remove <name>` removes a virtual environment
+  * `pyvm venv activate <name>` shows activation command
+* **Configuration System**: User preferences at `~/.config/pyvm/config.toml`
+  * `pyvm config` shows current configuration
+  * `pyvm config --init` creates default config file
+  * `pyvm config --path` shows config file location
+* **Verbose/Quiet Modes**: New `--verbose` and `--quiet` CLI flags
+* **Comprehensive Test Suite**: 34 tests covering core functionality
+
+### Changed
+* **Modular Architecture**: Complete refactor into `src/pyvm_updater/` package
+  * Split monolithic script into 11 focused modules
+  * Follows modern Python packaging with `src/` layout
+  * Cleaner separation of concerns
+* **Updated Documentation**: Refreshed README and PROJECT_STRUCTURE.md
+
+### Technical
+* New modules: `config.py`, `logging_config.py`, `venv.py`
+* Added `pytest` test files for history, utils, venv, and version modules
+* Removed deprecated root level `python_version.py` and `pyvm_tui.py`
+
 ## [2.1.0] - 2026-01-14
 
 ### Added

@@ -35,7 +35,7 @@ jobs:
       
       - name: Run mypy
         run: |
-          mypy python_version.py pyvm_tui.py --ignore-missing-imports --show-error-codes
+          mypy src/pyvm_updater --ignore-missing-imports --show-error-codes
         continue-on-error: false
 
   # ============================================
@@ -178,8 +178,7 @@ jobs:
       
       - name: Run tests with coverage
         run: |
-          # Exit code 5 means no tests collected, which is OK if you don't have tests yet
-          pytest --cov=. --cov-report=xml --cov-report=term-missing -v || [ $? -eq 5 ]
+          pytest --cov=src/pyvm_updater --cov-report=xml --cov-report=term-missing -v
 
   # ============================================
   # Summary Job - Reports overall status

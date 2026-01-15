@@ -21,14 +21,10 @@ except ImportError:
     print("Install it with: pip install textual")
     sys.exit(1)
 
-# Import from main module
-from python_version import (
-    HISTORY_FILE,
-    HistoryManager,
-    check_python_version,
-    get_active_python_releases,
-    get_installed_python_versions,
-    get_os_info,
+# Import from new modular structure
+from .constants import HISTORY_FILE
+from .history import HistoryManager
+from .installers import (
     remove_python_linux,
     remove_python_macos,
     remove_python_windows,
@@ -36,6 +32,8 @@ from python_version import (
     update_python_macos,
     update_python_windows,
 )
+from .utils import get_os_info
+from .version import check_python_version, get_active_python_releases, get_installed_python_versions
 
 
 class StatusBar(Static):

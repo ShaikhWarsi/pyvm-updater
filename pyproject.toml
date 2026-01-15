@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyvm-updater"
-version = "2.1.0"
+version = "2.2.0"
 description = "Cross-platform Python version checker and installer (does NOT modify system defaults)"
 readme = "README.md"
 authors = [
@@ -37,8 +37,11 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-[tool.setuptools]
-py-modules = ["python_version", "pyvm_tui"]
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
 
 [project.urls]
 Repository = "https://github.com/shreyasmene06/pyvm-updater"
@@ -54,7 +57,7 @@ dev = [
 ]
 
 [project.scripts]
-pyvm = "python_version:main"
+pyvm = "pyvm_updater.cli:main"
 
 [tool.black]
 line-length = 120
@@ -123,7 +126,7 @@ fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.isort]
-known-first-party = ["python_version", "pyvm_tui"]
+known-first-party = ["pyvm_updater"]
 
 [tool.ruff.format]
 # Use double quotes for strings
@@ -165,7 +168,7 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["."]
+source = ["src/pyvm_updater"]
 omit = [
     "tests/*",
     "setup.py",
