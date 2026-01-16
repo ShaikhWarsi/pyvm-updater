@@ -152,13 +152,50 @@ def update_python_windows(version_str: str) -> bool:
             if os.path.exists(installer_path):
                 os.remove(installer_path)
         except OSError:
-            pass
+            pass 
 
 
-def update_python_linux(version_str: str) -> bool:
+def update_python_linux(version_str: str, build_from_source: bool = False) -> bool:
     """Install Python on Linux using mise, pyenv, or package manager."""
     print("\n[Linux] Installing Python...")
 
+    if build_from_source:
+        print(f"⚙️ Preparing build environment for {version_str}...")
+        # Step 1: Ensure dependencies are installed using existing project logic
+        install_pyenv_linux() 
+
+        # Step 2: Define paths using author's filesystem pattern
+        source_url = f"https://www.python.org/ftp/python/{version_str}/Python-{version_str}.tar.xz"
+        temp_dir = tempfile.gettempdir()
+        source_path = os.path.join(temp_dir, f"Python-{version_str}.tar.xz")
+
+        # Step 3: Use author's standardized download utility from utils.py
+        if not download_file(source_url, source_path):
+            print("❌ Failed to download source code.")
+            return False
+
+        build_dir = os.path.join(temp_dir, f"Python-{version_str}")
+        try:
+            print("📦 Extracting and Compiling (this will take a few minutes)...")
+            subprocess.run(["tar", "-xf", source_path, "-C", temp_dir], check=True)
+            
+            # Step 4: Parallel build optimization using os.cpu_count()
+            cpu_cores = os.cpu_count() or 2
+            build_cmd = (
+                f"cd {build_dir} && ./configure --enable-optimizations && "
+                f"make -j{cpu_cores} && sudo make altinstall"
+            )
+            subprocess.run(build_cmd, shell=True, check=True)
+            return True
+        except Exception as e:
+            print(f"❌ Build failed: {e}")
+            return False
+        finally:
+            # Step 5: Clean up the filesystem using shutil.rmtree
+            if os.path.exists(build_dir):
+                shutil.rmtree(build_dir, ignore_errors=True)
+
+    # Standard validation follows if not building from source
     if not validate_version_string(version_str):
         print(f"Error: Invalid version string: {version_str}")
         return False

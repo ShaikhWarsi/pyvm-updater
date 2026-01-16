@@ -134,7 +134,8 @@ def check() -> None:
 @cli.command()
 @click.argument("version")
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
-def install(version: str, yes: bool) -> None:
+@click.option("--build-from-source", is_flag=True, help="Compile Python from source (Linux only)")
+def install(version: str, yes: bool, build_from_source: bool = False) -> None:
     """Install a specific Python version.
 
     Examples:
@@ -169,7 +170,7 @@ def install(version: str, yes: bool) -> None:
         if os_name == "windows":
             success = update_python_windows(version)
         elif os_name == "linux":
-            success = update_python_linux(version)
+            success = update_python_linux(version, build_from_source)
         elif os_name == "darwin":
             success = update_python_macos(version)
         else:
@@ -311,7 +312,8 @@ def list_versions(show_all: bool) -> None:
 @cli.command()
 @click.option("--auto", is_flag=True, help="Automatically proceed without confirmation")
 @click.option("--version", "target_version", default=None, help="Specify a target Python version")
-def update(auto: bool, target_version: str | None) -> None:
+@click.option("--build-from-source", is_flag=True, help="Compile Python from source (Linux only)")
+def update(auto: bool, target_version: str | None, build_from_source: bool = False) -> None:
     """Download and install Python version (does NOT modify system defaults)."""
     try:
         local_ver = platform.python_version()
@@ -344,7 +346,7 @@ def update(auto: bool, target_version: str | None) -> None:
             click.echo(f"\n🚀 Update available: {local_ver} → {latest_ver}")
             install_version = latest_ver
 
-        if not auto:
+        if not auto: 
             if not click.confirm(f"\nDo you want to proceed with installing Python {install_version}?"):
                 click.echo("Installation cancelled.")
                 sys.exit(0)
@@ -356,7 +358,7 @@ def update(auto: bool, target_version: str | None) -> None:
         if os_name == "windows":
             success = update_python_windows(install_version)
         elif os_name == "linux":
-            success = update_python_linux(install_version)
+            success = update_python_linux(install_version, build_from_source)
         elif os_name == "darwin":
             success = update_python_macos(install_version)
         else:
@@ -492,7 +494,7 @@ def venv_create(name: str, python_version: str | None, path: str | None, system_
     """
     from pathlib import Path as PathLib
 
-    from .venv import create_venv
+    from .venv import create_venv 
 
     venv_path = PathLib(path) if path else None
 
