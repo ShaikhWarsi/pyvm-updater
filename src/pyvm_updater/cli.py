@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 import click
-import click_completion.core
+
 
 from . import __version__
 from .config import Config, get_config
@@ -32,29 +32,18 @@ from .version import (
     get_latest_python_info_with_retry,
 )
 
-click_completion.init()
+
 
 # Module logger
 log = get_logger("cli")
 
 
-def install_callback(ctx, param, value):
-    if not value or ctx.resilient_parsing:
-        return
-    shell, path = click_completion.core.install()
-    click.echo(f"{shell} completion installed in {path}")
-    ctx.exit()
+
 
 
 @click.group(invoke_without_command=True)
 @click.pass_context
-@click.option(
-    "--install-completion",
-    is_flag=True,
-    callback=install_callback,
-    expose_value=False,
-    help="Install completion for the current shell.",
-)
+
 @click.option("--version", "-v", is_flag=True, help="Show tool version")
 @click.option("--verbose", "-V", is_flag=True, help="Enable verbose output")
 @click.option("--quiet", "-q", is_flag=True, help="Suppress non-essential output")

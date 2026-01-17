@@ -22,7 +22,7 @@ dependencies = [
     "packaging>=20.0",
     "click>=8.0.0",
     "textual>=0.40.0",
-    "click-completion",
+   
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

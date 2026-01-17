@@ -87,6 +87,21 @@ pyvm install 3.12.8
 
 ## Usage
 
+## Shell Completion
+
+Enable tab completion for your shell:
+
+**Bash** (add to `~/.bashrc`):
+```bash
+eval "$(_PYVM_COMPLETE=bash_source pyvm)"
+
+**Zsh** (add to `~/.zshrc`):
+```bash
+eval "$(_PYVM_COMPLETE=zsh_source pyvm)"
+**Fish** (add to `~/.config/fish/config.fish`):
+```fish
+_PYVM_COMPLETE=fish_source pyvm | source
+
 ### Interactive TUI Mode
 
 ```bash
