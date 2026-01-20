@@ -278,6 +278,42 @@ The new Python is installed alongside your existing version. Use the specific ve
 python3.12 --version    # Linux/macOS
 py -3.12 --version      # Windows
 ```
+### Permission Denied Errors
+* **Cause:** The script lacks execute permissions or is trying to write to a protected folder.
+* **Fix:**
+    * Run the command with `sudo` (Linux/Mac) or as Administrator (Windows).
+    * Ensure the script is executable: `chmod +x pyvm-updater`.
+
+### Firewall/Antivirus Blocking
+* **Cause:** Security software might flag the updater as suspicious because it modifies system files.
+* **Fix:** Whitelist `pyvm-updater` in your antivirus settings or temporarily disable the firewall during the update process.
+
+## 🆚 Comparison with other tools
+
+| Feature | pyvm | pyenv | asdf |
+|---------|------|-------|------|
+| **Scope** | Python only | Python only | Multi-language |
+| **Complexity** | Low (Single script) | High (Shims, builds) | High (Plugins) |
+| **OS Support** | Cross-platform | Unix-focused | Unix-focused |
+| **Use Case** | Quick updates & lightweight management | Deep version management | Universal dev environments |
+## 📖 API Documentation
+
+Developers can use `pyvm-updater` as a Python library to manage installations programmatically.
+
+### Installation Functions
+The module provides platform-specific functions to install Python versions.
+
+```python
+from pyvm_updater import installers
+
+# Windows: Downloads and runs the official installer
+success = installers.update_python_windows("3.12.1")
+
+# Linux: Tries mise, pyenv, then system package managers (apt/dnf)
+success = installers.update_python_linux("3.12.1", build_from_source=False)
+
+# macOS: Tries mise, pyenv, brew, then official installer
+success = installers.update_python_macos("3.12.1")
 
 ## Development
 
