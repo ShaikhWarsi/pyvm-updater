@@ -10,7 +10,6 @@ import time
 
 import click
 import requests
-# rich.progress is used for the enhanced CLI download progress bar (speed, ETA, etc.)
 from rich.progress import (
     BarColumn,
     DownloadColumn,
