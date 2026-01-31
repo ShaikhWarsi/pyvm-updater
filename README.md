@@ -11,7 +11,7 @@ pyvm provides a safe and convenient way to manage multiple Python versions on yo
 ## Features
 
 ### Interactive TUI
-
+<img width="1914" height="1039" alt="image" src="https://github.com/user-attachments/assets/6ffc278a-752b-468b-8a57-fff4d2936677" />
 - Terminal interface with keyboard and mouse support
 - Three-panel layout showing installed versions, available releases, and status
 - Keyboard navigation with Tab, arrows, and shortcuts
