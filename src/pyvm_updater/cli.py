@@ -135,12 +135,14 @@ def check() -> None:
 @click.argument("version")
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
 @click.option("--build-from-source", is_flag=True, help="Compile Python from source (Linux only)")
-def install(version: str, yes: bool, build_from_source: bool = False) -> None:
+@click.option("--installer", "-i", default="auto", help="Preferred installer plugin to use")
+def install(version: str, yes: bool, build_from_source: bool = False, installer: str = "auto") -> None:
     """Install a specific Python version.
 
     Examples:
         pyvm install 3.12.1
         pyvm install 3.11.5 --yes
+        pyvm install 3.12.1 --installer pyenv
     """
     try:
         if not validate_version_string(version) or len(version.split(".")) < 3:
@@ -168,11 +170,11 @@ def install(version: str, yes: bool, build_from_source: bool = False) -> None:
 
         success = False
         if os_name == "windows":
-            success = update_python_windows(version)
+            success = update_python_windows(version, preferred=installer)
         elif os_name == "linux":
-            success = update_python_linux(version, build_from_source)
+            success = update_python_linux(version, build_from_source, preferred=installer)
         elif os_name == "darwin":
-            success = update_python_macos(version)
+            success = update_python_macos(version, preferred=installer)
         else:
             click.echo(f"Unsupported operating system: {os_name}")
             sys.exit(1)
@@ -313,7 +315,8 @@ def list_versions(show_all: bool) -> None:
 @click.option("--auto", is_flag=True, help="Automatically proceed without confirmation")
 @click.option("--version", "target_version", default=None, help="Specify a target Python version")
 @click.option("--build-from-source", is_flag=True, help="Compile Python from source (Linux only)")
-def update(auto: bool, target_version: str | None, build_from_source: bool = False) -> None:
+@click.option("--installer", "-i", default="auto", help="Preferred installer plugin to use")
+def update(auto: bool, target_version: str | None, build_from_source: bool = False, installer: str = "auto") -> None:
     """Download and install Python version (does NOT modify system defaults)."""
     try:
         local_ver = platform.python_version()
@@ -356,11 +359,11 @@ def update(auto: bool, target_version: str | None, build_from_source: bool = Fal
 
         success = False
         if os_name == "windows":
-            success = update_python_windows(install_version)
+            success = update_python_windows(install_version, preferred=installer)
         elif os_name == "linux":
-            success = update_python_linux(install_version, build_from_source)
+            success = update_python_linux(install_version, build_from_source, preferred=installer)
         elif os_name == "darwin":
-            success = update_python_macos(install_version)
+            success = update_python_macos(install_version, preferred=installer)
         else:
             click.echo(f"❌ Unsupported operating system: {os_name}")
             sys.exit(1)
@@ -430,9 +433,10 @@ def info() -> None:
 @click.option("--show", is_flag=True, help="Show current configuration")
 @click.option("--init", "init_config", is_flag=True, help="Create default config file")
 @click.option("--path", is_flag=True, help="Show config file path")
-def config(show: bool, init_config: bool, path: bool) -> None:
+@click.option("--set", "set_kv", nargs=2, help="Set a config value (e.g., --set general.preferred_installer pyenv)")
+def config(show: bool, init_config: bool, path: bool, set_kv: tuple[str, str] | None) -> None:
     """View or manage pyvm configuration."""
-    from .config import CONFIG_FILE
+    from .config import CONFIG_FILE, get_config
 
     if path:
         click.echo(f"Config file: {CONFIG_FILE}")
@@ -447,7 +451,7 @@ def config(show: bool, init_config: bool, path: bool) -> None:
             click.echo(f"Config file already exists: {CONFIG_FILE}")
             return
 
-        cfg = Config()
+        cfg = get_config()
         if cfg.save():
             click.echo(f"Created config file: {CONFIG_FILE}")
         else:
@@ -455,8 +459,35 @@ def config(show: bool, init_config: bool, path: bool) -> None:
             sys.exit(1)
         return
 
-    # Default: show current config
     cfg = get_config()
+
+    if set_kv:
+        key_path, value = set_kv
+        if "." not in key_path:
+            click.echo("Error: Key must be in format 'section.key' (e.g., 'general.auto_confirm')")
+            sys.exit(1)
+        
+        section, key = key_path.split(".", 1)
+        
+        # Type conversion for common values
+        if value.lower() == "true":
+            typed_value: Any = True
+        elif value.lower() == "false":
+            typed_value = False
+        elif value.isdigit():
+            typed_value = int(value)
+        else:
+            typed_value = value
+            
+        cfg.set(section, key, typed_value)
+        if cfg.save():
+            click.echo(f"✅ Set {key_path} = {typed_value}")
+        else:
+            click.echo("❌ Failed to save configuration.")
+            sys.exit(1)
+        return
+
+    # Default: show current config
     click.echo("Current Configuration:")
     click.echo("-" * 40)
     click.echo(f"Auto-confirm:       {cfg.auto_confirm}")
@@ -467,6 +498,17 @@ def config(show: bool, init_config: bool, path: bool) -> None:
     click.echo(f"Download timeout:   {cfg.download_timeout}s")
     click.echo(f"TUI theme:          {cfg.tui_theme}")
     click.echo("-" * 40)
+    
+    from .plugins.manager import get_plugin_manager
+    pm = get_plugin_manager()
+    click.echo("\nDetected Installers:")
+    click.echo("-" * 40)
+    for plugin in pm.get_all_plugins():
+        status = "✅ Supported" if plugin.is_supported() else "❌ Not Found"
+        priority = plugin.get_priority()
+        click.echo(f"{plugin.get_name():<12} {status:<15} (Priority: {priority})")
+    click.echo("-" * 40)
+
     click.echo(f"\nConfig file: {CONFIG_FILE}")
     if not CONFIG_FILE.exists():
         click.echo("(Using defaults. Run 'pyvm config --init' to create config file.)")
