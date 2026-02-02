@@ -11,7 +11,7 @@ from typing import Any
 import click
 
 from . import __version__
-from .config import Config, get_config
+from .config import get_config
 from .constants import HISTORY_FILE
 from .history import HistoryManager
 from .installers import (

@@ -46,7 +46,7 @@ class InstallerPlugin(ABC):
 
     def get_priority(self) -> int:
         """Return the priority of this installer (higher is better).
-        
+
         Default priority is 10. Standard installers like mise/pyenv should have
         higher priority than generic system package managers.
         """

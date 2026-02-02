@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
-import os
-import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Type
 
 from ..config import CONFIG_DIR
 from .base import InstallerPlugin
@@ -25,8 +22,8 @@ from .standard import (
 class PluginManager:
     """Manages discovery and loading of installer plugins."""
 
-    _instance: Optional[PluginManager] = None
-    _plugins: Dict[str, InstallerPlugin] = {}
+    _instance: PluginManager | None = None
+    _plugins: dict[str, InstallerPlugin] = {}
 
     def __new__(cls) -> PluginManager:
         if cls._instance is None:
@@ -69,13 +66,11 @@ class PluginManager:
             if spec and spec.loader:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
-                
+
                 # Find classes that inherit from InstallerPlugin
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
-                    if (isinstance(attr, type) and 
-                        issubclass(attr, InstallerPlugin) and 
-                        attr is not InstallerPlugin):
+                    if isinstance(attr, type) and issubclass(attr, InstallerPlugin) and attr is not InstallerPlugin:
                         self.register_plugin(attr())
         except Exception as e:
             print(f"Error loading plugin from {file_path}: {e}")
@@ -84,20 +79,20 @@ class PluginManager:
         """Register a plugin instance."""
         self._plugins[plugin.get_name()] = plugin
 
-    def get_plugin(self, name: str) -> Optional[InstallerPlugin]:
+    def get_plugin(self, name: str) -> InstallerPlugin | None:
         """Get a plugin by name."""
         return self._plugins.get(name)
 
-    def get_all_plugins(self) -> List[InstallerPlugin]:
+    def get_all_plugins(self) -> list[InstallerPlugin]:
         """Get all registered plugins."""
         return list(self._plugins.values())
 
-    def get_supported_plugins(self) -> List[InstallerPlugin]:
+    def get_supported_plugins(self) -> list[InstallerPlugin]:
         """Get all plugins supported on the current system, sorted by priority."""
         supported = [p for p in self._plugins.values() if p.is_supported()]
         return sorted(supported, key=lambda p: p.get_priority(), reverse=True)
 
-    def get_best_installer(self, preferred: str = "auto") -> Optional[InstallerPlugin]:
+    def get_best_installer(self, preferred: str = "auto") -> InstallerPlugin | None:
         """Get the best installer based on preference and support."""
         if preferred != "auto":
             plugin = self.get_plugin(preferred)

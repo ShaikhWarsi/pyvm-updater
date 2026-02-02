@@ -10,9 +10,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .base import InstallerPlugin
 from ..utils import download_file, validate_version_string, verify_file_checksum
 from ..version import is_python_version_installed
+from .base import InstallerPlugin
 
 
 class MiseInstaller(InstallerPlugin):

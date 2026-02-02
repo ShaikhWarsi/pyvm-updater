@@ -83,8 +83,9 @@ def fetch_remote_sha256(checksum_url: str) -> str | None:
 def verify_file_checksum(file_path: str, checksum_url: str) -> bool:
     """Verify downloaded file against python.org SHA256."""
     from .config import get_config
+
     cfg = get_config()
-    
+
     if not cfg.verify_checksum:
         return True
 

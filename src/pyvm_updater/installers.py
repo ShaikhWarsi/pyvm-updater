@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import platform
-from typing import Optional
-
 import click
 
-from .plugins.manager import get_plugin_manager
 from .config import get_config
+from .plugins.manager import get_plugin_manager
 
 
 def update_python_windows(version_str: str, preferred: str = "auto") -> bool:
@@ -22,7 +19,7 @@ def update_python_linux(version_str: str, build_from_source: bool = False, prefe
         preferred = "source"
     elif preferred == "auto":
         preferred = get_config().preferred_installer
-    
+
     return _install_with_plugins(version_str, preferred=preferred)
 
 
@@ -35,14 +32,16 @@ def _install_with_plugins(version_str: str, preferred: str = "auto") -> bool:
     """Generic installation logic using the plugin system."""
     pm = get_plugin_manager()
     installer = pm.get_best_installer(preferred=preferred)
-    
+
     if not installer:
         click.echo("❌ No supported installer found for your system.")
         return False
-    
+
     if preferred != "auto" and installer.get_name() != preferred:
-        click.echo(f"⚠️  Requested installer '{preferred}' is not supported or not found. Falling back to '{installer.get_name()}'.")
-    
+        click.echo(
+            f"⚠️  Requested installer '{preferred}' is not supported or not found. Falling back to '{installer.get_name()}'."
+        )
+
     return installer.install(version_str)
 
 
@@ -69,7 +68,7 @@ def _uninstall_with_plugins(version_str: str) -> bool:
         if installer.uninstall(version_str):
             click.echo(f"[OK] Python {version_str} uninstalled via {installer.get_name()}.")
             return True
-    
+
     click.echo(f"❌ Could not find an automated way to remove Python {version_str}.")
     return False
 
