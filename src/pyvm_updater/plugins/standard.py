@@ -506,27 +506,3 @@ class AsdfInstaller(InstallerPlugin):
 
     def get_priority(self) -> int:
         return 95
-
-
-class MockInstaller(InstallerPlugin):
-    """A mock installer for testing the plugin system."""
-
-    def get_name(self) -> str:
-        return "mock"
-
-    def is_supported(self) -> bool:
-        return True
-
-    def install(self, version: str, **kwargs: Any) -> bool:
-        print(f"\n[MOCK] Simulating installation of Python {version}...")
-        print("[MOCK] Running pre-install checks...")
-        print(f"[MOCK] Creating virtual environment 'pyvm-{version}'...")
-        print(f"[MOCK] Successfully installed Python {version} (simulated)!")
-        return True
-
-    def uninstall(self, version: str) -> bool:
-        print(f"\n[MOCK] Simulating removal of Python {version}...")
-        return True
-
-    def get_priority(self) -> int:
-        return 0
