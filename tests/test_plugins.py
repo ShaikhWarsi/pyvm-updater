@@ -1,25 +1,12 @@
 """Tests for the plugin system."""
 
-import os
-import shutil
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from pyvm_updater.plugins.base import InstallerPlugin
 from pyvm_updater.plugins.manager import PluginManager
-from pyvm_updater.plugins.standard import (
-    AptInstaller,
-    AsdfInstaller,
-    BrewInstaller,
-    CondaInstaller,
-    MiseInstaller,
-    PyenvInstaller,
-    SourceInstaller,
-    WindowsInstaller,
-)
+from pyvm_updater.plugins.standard import MiseInstaller
 
 
 class TestPluginManager:
@@ -35,7 +22,7 @@ class TestPluginManager:
         """Test that built-in plugins are registered automatically."""
         pm = PluginManager()
         plugins = pm.get_all_plugins()
-        
+
         # Verify common built-ins are present
         plugin_names = [p.get_name() for p in plugins]
         assert "mise" in plugin_names
@@ -49,24 +36,24 @@ class TestPluginManager:
         pm = PluginManager()
         plugin = pm.get_plugin("mise")
         assert isinstance(plugin, MiseInstaller)
-        
+
         assert pm.get_plugin("non-existent") is None
 
     def test_priority_ordering(self):
         """Test that supported plugins are returned sorted by priority."""
         pm = PluginManager()
-        
+
         # Create some mock plugins with different priorities
         p1 = MagicMock(spec=InstallerPlugin)
         p1.get_name.return_value = "low-priority"
         p1.get_priority.return_value = 10
         p1.is_supported.return_value = True
-        
+
         p2 = MagicMock(spec=InstallerPlugin)
         p2.get_name.return_value = "high-priority"
         p2.get_priority.return_value = 100
         p2.is_supported.return_value = True
-        
+
         # Clear existing plugins for this test
         with patch.dict(pm._plugins, {"low": p1, "high": p2}, clear=True):
             supported = pm.get_supported_plugins()
@@ -77,12 +64,12 @@ class TestPluginManager:
     def test_custom_plugin_loading(self):
         """Test loading a custom plugin from a file."""
         pm = PluginManager()
-        
+
         # Create a temporary plugin file
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             plugin_file = temp_path / "custom_plugin.py"
-            
+
             plugin_code = """
 from pyvm_updater.plugins.base import InstallerPlugin
 from typing import Any
