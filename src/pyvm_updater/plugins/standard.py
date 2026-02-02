@@ -34,7 +34,7 @@ class MiseInstaller(InstallerPlugin):
                 if len(parts) >= 2:
                     major_minor = f"{parts[0]}.{parts[1]}"
                     result = subprocess.run(["mise", "install", f"python@{major_minor}"], check=False)
-            
+
             if result.returncode == 0:
                 print(f"\n[OK] Python {version} installed via mise!")
                 print(f"\nTo use: mise use python@{version}")
@@ -109,7 +109,7 @@ class BrewInstaller(InstallerPlugin):
         if len(parts) < 2:
             return False
         major_minor = f"{parts[0]}.{parts[1]}"
-        
+
         print(f"Using Homebrew to install Python {major_minor}...")
         try:
             subprocess.run(["brew", "update"], check=False, capture_output=True)
@@ -127,7 +127,7 @@ class BrewInstaller(InstallerPlugin):
             return False
         major_minor = f"{parts[0]}.{parts[1]}"
         pkg_name = f"python@{major_minor}"
-        
+
         try:
             check_brew = subprocess.run(["brew", "list", pkg_name], capture_output=True, text=True, check=False)
             if check_brew.returncode == 0:
@@ -261,7 +261,7 @@ class WindowsInstaller(InstallerPlugin):
                 else:
                     print(f"\n❌ Installer failed with exit code {result.returncode}")
                 return False
-            
+
             # Additional check: If it returned 0 but was cancelled, we can't easily tell,
             # but usually returncode is reliable.
             return True
@@ -310,7 +310,7 @@ class SourceInstaller(InstallerPlugin):
 
     def install(self, version: str, **kwargs: Any) -> bool:
         print(f"⚙️ Preparing build environment for {version}...")
-        
+
         # Ensure dependencies (simplified version of install_pyenv_linux logic)
         if not self._install_dependencies():
             return False
