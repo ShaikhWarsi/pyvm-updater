@@ -6,6 +6,7 @@ import json
 import platform
 import subprocess
 import sys
+from typing import Any
 
 import click
 

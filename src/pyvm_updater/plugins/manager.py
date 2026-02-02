@@ -16,7 +16,6 @@ from .standard import (
     BrewInstaller,
     CondaInstaller,
     MiseInstaller,
-    MockInstaller,
     PyenvInstaller,
     SourceInstaller,
     WindowsInstaller,
@@ -47,7 +46,6 @@ class PluginManager:
             AptInstaller(),
             WindowsInstaller(),
             SourceInstaller(),
-            MockInstaller(),
         ]
         for plugin in builtins:
             self.register_plugin(plugin)
