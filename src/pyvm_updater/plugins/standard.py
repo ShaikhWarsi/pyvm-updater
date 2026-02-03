@@ -342,9 +342,7 @@ class SourceInstaller(InstallerPlugin):
 
             print(f"🔧 Configuring and building with {os.cpu_count() or 2} cores...")
             cpu_cores = str(os.cpu_count() or 2)
-            subprocess.run(
-                ["./configure", "--enable-optimizations"], cwd=build_dir, check=True
-            )
+            subprocess.run(["./configure", "--enable-optimizations"], cwd=build_dir, check=True)
             subprocess.run(["make", f"-j{cpu_cores}"], cwd=build_dir, check=True)
             subprocess.run(["sudo", "make", "altinstall"], cwd=build_dir, check=True)
 
