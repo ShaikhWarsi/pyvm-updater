@@ -27,17 +27,13 @@ class MiseInstaller(InstallerPlugin):
     def install(self, version: str, **kwargs: Any) -> bool:
         print(f"Using mise to install Python {version}...")
         try:
-            result = subprocess.run(
-                ["mise", "install", f"python@{version}"], check=False
-            )
+            result = subprocess.run(["mise", "install", f"python@{version}"], check=False)
             if result.returncode != 0:
                 # Try major.minor if exact version fails
                 parts = version.split(".")
                 if len(parts) >= 2:
                     major_minor = f"{parts[0]}.{parts[1]}"
-                    result = subprocess.run(
-                        ["mise", "install", f"python@{major_minor}"], check=False
-                    )
+                    result = subprocess.run(["mise", "install", f"python@{major_minor}"], check=False)
 
             if result.returncode == 0:
                 print(f"\n[OK] Python {version} installed via mise!")
@@ -117,9 +113,7 @@ class BrewInstaller(InstallerPlugin):
         print(f"Using Homebrew to install Python {major_minor}...")
         try:
             subprocess.run(["brew", "update"], check=False, capture_output=True)
-            result = subprocess.run(
-                ["brew", "install", f"python@{major_minor}"], check=False
-            )
+            result = subprocess.run(["brew", "install", f"python@{major_minor}"], check=False)
             if result.returncode == 0:
                 print(f"[OK] Python {version} installed via Homebrew")
                 return True
@@ -175,13 +169,7 @@ class AptInstaller(InstallerPlugin):
             sudo_prefix + ["add-apt-repository", "-y", "ppa:deadsnakes/ppa"],
             sudo_prefix + ["apt", "update"],
             sudo_prefix + ["apt", "install", "-y", f"python{major_minor}"],
-            sudo_prefix + [
-                "apt",
-                "install",
-                "-y",
-                f"python{major_minor}-venv",
-                f"python{major_minor}-distutils",
-            ],
+            sudo_prefix + ["apt", "install", "-y", f"python{major_minor}-venv", f"python{major_minor}-distutils"],
         ]
 
         for cmd in commands:
@@ -350,9 +338,7 @@ class SourceInstaller(InstallerPlugin):
         build_dir = os.path.join(temp_dir, f"Python-{version}")
         try:
             print("📦 Extracting and Compiling (this will take a few minutes)...")
-            subprocess.run(
-                ["tar", "-xf", source_path, "-C", temp_dir], check=True
-            )
+            subprocess.run(["tar", "-xf", source_path, "-C", temp_dir], check=True)
 
             print(f"🔧 Configuring and building with {os.cpu_count() or 2} cores...")
             cpu_cores = str(os.cpu_count() or 2)
@@ -427,13 +413,9 @@ class SourceInstaller(InstallerPlugin):
             prefix = ["sudo"] if shutil.which("sudo") else []
             if pkg_mgr == "apt":
                 subprocess.run(prefix + ["apt", "update"], check=True)
-                subprocess.run(
-                    prefix + ["apt", "install", "-y"] + deps, check=True
-                )
+                subprocess.run(prefix + ["apt", "install", "-y"] + deps, check=True)
             else:
-                subprocess.run(
-                    prefix + [pkg_mgr, "install", "-y"] + deps, check=True
-                )
+                subprocess.run(prefix + [pkg_mgr, "install", "-y"] + deps, check=True)
             return True
         except Exception as e:
             print(f"Error installing dependencies: {e}")
@@ -549,9 +531,7 @@ class AsdfInstaller(InstallerPlugin):
                 capture_output=True,
             )
 
-            result = subprocess.run(
-                ["asdf", "install", "python", version], check=False
-            )
+            result = subprocess.run(["asdf", "install", "python", version], check=False)
             if result.returncode == 0:
                 print(f"\n[OK] Python {version} installed via asdf!")
                 print(f"To use: asdf global python {version}")
