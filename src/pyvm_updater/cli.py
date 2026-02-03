@@ -135,9 +135,7 @@ def check() -> None:
 @cli.command()
 @click.argument("version")
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
-@click.option(
-    "--build-from-source", is_flag=True, help="Compile Python from source (Linux only)"
-)
+@click.option("--build-from-source", is_flag=True, help="Compile Python from source (Linux only)")
 @click.option("--installer", "-i", default="auto", help="Preferred installer plugin to use")
 def install(
     version: str,
@@ -286,9 +284,7 @@ def list_versions(show_all: bool) -> None:
                 click.echo("Could not fetch active releases.")
                 sys.exit(1)
 
-            click.echo(
-                f"{'SERIES':<10} {'LATEST':<12} {'STATUS':<15} {'SUPPORT UNTIL'}"
-            )
+            click.echo(f"{'SERIES':<10} {'LATEST':<12} {'STATUS':<15} {'SUPPORT UNTIL'}")
             click.echo("-" * 55)
 
             for rel in releases:
@@ -312,9 +308,7 @@ def list_versions(show_all: bool) -> None:
                 else:
                     status_display = status
 
-                click.echo(
-                    f"{series:<10} {latest:<12} {status_display:<15} {end_support}{marker}"
-                )
+                click.echo(f"{series:<10} {latest:<12} {status_display:<15} {end_support}{marker}")
 
             click.echo(f"\n * = your installed version ({local_ver})")
             click.echo("\nUse 'pyvm list --all' to see all patch versions")
@@ -331,12 +325,8 @@ def list_versions(show_all: bool) -> None:
 
 @cli.command()
 @click.option("--auto", is_flag=True, help="Automatically proceed without confirmation")
-@click.option(
-    "--version", "target_version", default=None, help="Specify a target Python version"
-)
-@click.option(
-    "--build-from-source", is_flag=True, help="Compile Python from source (Linux only)"
-)
+@click.option("--version", "target_version", default=None, help="Specify a target Python version")
+@click.option("--build-from-source", is_flag=True, help="Compile Python from source (Linux only)")
 @click.option("--installer", "-i", default="auto", help="Preferred installer plugin to use")
 def update(
     auto: bool,
@@ -441,9 +431,7 @@ def info() -> None:
         click.echo(f"\nAdmin/Sudo:       {'Yes' if is_admin() else 'No'}")
 
         try:
-            result = subprocess.run(
-                ["which", "python3"], capture_output=True, text=True, check=False
-            )
+            result = subprocess.run(["which", "python3"], capture_output=True, text=True, check=False)
             if result.returncode == 0:
                 python3_path = result.stdout.strip()
                 if python3_path != sys.executable:
@@ -468,9 +456,7 @@ def info() -> None:
     nargs=2,
     help="Set a config value (e.g., --set general.preferred_installer pyenv)",
 )
-def config(
-    show: bool, init_config: bool, path: bool, set_kv: tuple[str, str] | None
-) -> None:
+def config(show: bool, init_config: bool, path: bool, set_kv: tuple[str, str] | None) -> None:
     """View or manage pyvm configuration."""
     from .config import CONFIG_FILE, get_config
 
@@ -500,9 +486,7 @@ def config(
     if set_kv:
         key_path, value = set_kv
         if "." not in key_path:
-            click.echo(
-                "Error: Key must be in format 'section.key' (e.g., 'general.auto_confirm')"
-            )
+            click.echo("Error: Key must be in format 'section.key' (e.g., 'general.auto_confirm')")
             sys.exit(1)
 
         section, key = key_path.split(".", 1)
@@ -564,9 +548,7 @@ def venv() -> None:
 @click.argument("name")
 @click.option("--python", "-p", "python_version", help="Python version to use (e.g., 3.12)")
 @click.option("--path", type=click.Path(), help="Custom path for the venv")
-@click.option(
-    "--system-site-packages", is_flag=True, help="Include system site-packages"
-)
+@click.option("--system-site-packages", is_flag=True, help="Include system site-packages")
 def venv_create(
     name: str,
     python_version: str | None,

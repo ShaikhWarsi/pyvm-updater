@@ -56,9 +56,7 @@ def get_installed_python_versions() -> list[dict[str, Any]]:
                                         "version": ver,
                                         "path": full_path,
                                         "default": full_path == sys.executable
-                                        or sys.executable.startswith(
-                                            os.path.join(mise_python_dir, entry)
-                                        ),
+                                        or sys.executable.startswith(os.path.join(mise_python_dir, entry)),
                                     }
                                 )
             except PermissionError:

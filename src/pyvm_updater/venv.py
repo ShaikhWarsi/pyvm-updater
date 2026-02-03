@@ -67,9 +67,7 @@ def find_python_executable(version: str) -> str | None:
     installed = get_installed_python_versions()
     for v in installed:
         v_parts = v["version"].split(".")
-        v_major_minor = (
-            f"{v_parts[0]}.{v_parts[1]}" if len(v_parts) >= 2 else v["version"]
-        )
+        v_major_minor = f"{v_parts[0]}.{v_parts[1]}" if len(v_parts) >= 2 else v["version"]
         if v_major_minor == major_minor and v.get("path"):
             path = v["path"]
             return str(path) if path else None
@@ -93,9 +91,7 @@ def find_python_executable(version: str) -> str | None:
         candidates = [
             f"python{major_minor}",
             f"python{parts[0]}",
-            os.path.expanduser(
-                f"~/.local/share/mise/installs/python/{version}/bin/python3"
-            ),
+            os.path.expanduser(f"~/.local/share/mise/installs/python/{version}/bin/python3"),
             os.path.expanduser(f"~/.pyenv/versions/{version}/bin/python3"),
         ]
 
