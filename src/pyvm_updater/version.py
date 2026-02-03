@@ -56,7 +56,9 @@ def get_installed_python_versions() -> list[dict[str, Any]]:
                                         "version": ver,
                                         "path": full_path,
                                         "default": full_path == sys.executable
-                                        or sys.executable.startswith(os.path.join(mise_python_dir, entry)),
+                                        or sys.executable.startswith(
+                                            os.path.join(mise_python_dir, entry)
+                                        ),
                                     }
                                 )
             except PermissionError:
@@ -81,7 +83,12 @@ def get_installed_python_versions() -> list[dict[str, Any]]:
                 pass
 
         # system paths
-        search_paths = ["/usr/bin", "/usr/local/bin", "/opt/homebrew/bin", os.path.expanduser("~/.local/bin")]
+        search_paths = [
+            "/usr/bin",
+            "/usr/local/bin",
+            "/opt/homebrew/bin",
+            os.path.expanduser("~/.local/bin"),
+        ]
         for path in search_paths:
             if os.path.isdir(path):
                 try:

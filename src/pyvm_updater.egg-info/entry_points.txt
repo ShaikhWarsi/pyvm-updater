@@ -1,0 +1,2 @@
+[console_scripts]
+pyvm = pyvm_updater.cli:main

@@ -87,16 +87,16 @@ class CustomTestPlugin(InstallerPlugin):
         return 500
 """
             plugin_file.write_text(plugin_code)
-            
+
             # Use _load_plugin_from_file to load it
             pm._load_plugin_from_file(plugin_file)
-            
+
             # Verify it's registered
             plugin = pm.get_plugin("custom-test")
             assert plugin is not None
             assert plugin.get_name() == "custom-test"
             assert plugin.get_priority() == 500
-            
+
             # Clean up (remove from registered plugins)
             if "custom-test" in pm._plugins:
                 del pm._plugins["custom-test"]

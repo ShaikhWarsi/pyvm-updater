@@ -27,13 +27,17 @@ class MiseInstaller(InstallerPlugin):
     def install(self, version: str, **kwargs: Any) -> bool:
         print(f"Using mise to install Python {version}...")
         try:
-            result = subprocess.run(["mise", "install", f"python@{version}"], check=False)
+            result = subprocess.run(
+                ["mise", "install", f"python@{version}"], check=False
+            )
             if result.returncode != 0:
                 # Try major.minor if exact version fails
                 parts = version.split(".")
                 if len(parts) >= 2:
                     major_minor = f"{parts[0]}.{parts[1]}"
-                    result = subprocess.run(["mise", "install", f"python@{major_minor}"], check=False)
+                    result = subprocess.run(
+                        ["mise", "install", f"python@{major_minor}"], check=False
+                    )
 
             if result.returncode == 0:
                 print(f"\n[OK] Python {version} installed via mise!")
@@ -71,7 +75,7 @@ class PyenvInstaller(InstallerPlugin):
     def install(self, version: str, **kwargs: Any) -> bool:
         print(f"Using pyenv to install Python {version}...")
         try:
-            result = subprocess.run(["pyenv", "install", version], check=False)
+            result = subprocess.run(["pyenv", "install", "-s", version], check=False)
             if result.returncode == 0:
                 print(f"\n[OK] Python {version} installed via pyenv!")
                 return True
@@ -113,7 +117,9 @@ class BrewInstaller(InstallerPlugin):
         print(f"Using Homebrew to install Python {major_minor}...")
         try:
             subprocess.run(["brew", "update"], check=False, capture_output=True)
-            result = subprocess.run(["brew", "install", f"python@{major_minor}"], check=False)
+            result = subprocess.run(
+                ["brew", "install", f"python@{major_minor}"], check=False
+            )
             if result.returncode == 0:
                 print(f"[OK] Python {version} installed via Homebrew")
                 return True
@@ -129,7 +135,12 @@ class BrewInstaller(InstallerPlugin):
         pkg_name = f"python@{major_minor}"
 
         try:
-            check_brew = subprocess.run(["brew", "list", pkg_name], capture_output=True, text=True, check=False)
+            check_brew = subprocess.run(
+                ["brew", "list", pkg_name],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             if check_brew.returncode == 0:
                 subprocess.run(["brew", "uninstall", pkg_name], check=False)
                 return True
@@ -157,13 +168,20 @@ class AptInstaller(InstallerPlugin):
         major_minor = f"{parts[0]}.{parts[1]}"
 
         print("Using apt package manager...")
+        sudo_prefix = ["sudo"] if shutil.which("sudo") else []
         commands = [
-            ["sudo", "apt", "update"],
-            ["sudo", "apt", "install", "-y", "software-properties-common"],
-            ["sudo", "add-apt-repository", "-y", "ppa:deadsnakes/ppa"],
-            ["sudo", "apt", "update"],
-            ["sudo", "apt", "install", "-y", f"python{major_minor}"],
-            ["sudo", "apt", "install", "-y", f"python{major_minor}-venv", f"python{major_minor}-distutils"],
+            sudo_prefix + ["apt", "update"],
+            sudo_prefix + ["apt", "install", "-y", "software-properties-common"],
+            sudo_prefix + ["add-apt-repository", "-y", "ppa:deadsnakes/ppa"],
+            sudo_prefix + ["apt", "update"],
+            sudo_prefix + ["apt", "install", "-y", f"python{major_minor}"],
+            sudo_prefix + [
+                "apt",
+                "install",
+                "-y",
+                f"python{major_minor}-venv",
+                f"python{major_minor}-distutils",
+            ],
         ]
 
         for cmd in commands:
@@ -282,12 +300,18 @@ class WindowsInstaller(InstallerPlugin):
         # Try winget
         if shutil.which("winget"):
             major_minor = ".".join(version.split(".")[:2])
-            potential_ids = [f"Python.Python.{major_minor}", f"PythonSoftwareFoundation.Python.{major_minor}"]
+            potential_ids = [
+                f"Python.Python.{major_minor}",
+                f"PythonSoftwareFoundation.Python.{major_minor}",
+            ]
 
             for pkg_id in potential_ids:
                 try:
                     result = subprocess.run(
-                        ["winget", "uninstall", "--id", pkg_id, "--silent"], capture_output=True, text=True, check=False
+                        ["winget", "uninstall", "--id", pkg_id, "--silent"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
                     )
                     if result.returncode == 0:
                         return True
@@ -326,10 +350,15 @@ class SourceInstaller(InstallerPlugin):
         build_dir = os.path.join(temp_dir, f"Python-{version}")
         try:
             print("📦 Extracting and Compiling (this will take a few minutes)...")
-            subprocess.run(["tar", "-xf", source_path, "-C", temp_dir], check=True)
+            subprocess.run(
+                ["tar", "-xf", source_path, "-C", temp_dir], check=True
+            )
 
+            print(f"🔧 Configuring and building with {os.cpu_count() or 2} cores...")
             cpu_cores = str(os.cpu_count() or 2)
-            subprocess.run(["./configure", "--enable-optimizations"], cwd=build_dir, check=True)
+            subprocess.run(
+                ["./configure", "--enable-optimizations"], cwd=build_dir, check=True
+            )
             subprocess.run(["make", f"-j{cpu_cores}"], cwd=build_dir, check=True)
             subprocess.run(["sudo", "make", "altinstall"], cwd=build_dir, check=True)
 
@@ -364,20 +393,47 @@ class SourceInstaller(InstallerPlugin):
 
         deps = []
         if pkg_mgr in ["dnf", "yum"]:
-            deps = ["git", "gcc", "zlib-devel", "bzip2-devel", "readline-devel", "sqlite-devel", 
-                    "openssl-devel", "xz-devel", "libffi-devel", "findutils"]
+            deps = [
+                "git",
+                "gcc",
+                "zlib-devel",
+                "bzip2-devel",
+                "readline-devel",
+                "sqlite-devel",
+                "openssl-devel",
+                "xz-devel",
+                "libffi-devel",
+                "findutils",
+            ]
         elif pkg_mgr == "apt":
-            deps = ["build-essential", "libssl-dev", "zlib1g-dev", "libncurses5-dev", 
-                    "libncursesw5-dev", "libreadline-dev", "libsqlite3-dev", "libgdbm-dev", 
-                    "libdb5.3-dev", "libbz2-dev", "libexpat1-dev", "liblzma-dev", "tk-dev", "libffi-dev"]
+            deps = [
+                "build-essential",
+                "libssl-dev",
+                "zlib1g-dev",
+                "libncurses5-dev",
+                "libncursesw5-dev",
+                "libreadline-dev",
+                "libsqlite3-dev",
+                "libgdbm-dev",
+                "libdb5.3-dev",
+                "libbz2-dev",
+                "libexpat1-dev",
+                "liblzma-dev",
+                "tk-dev",
+                "libffi-dev",
+            ]
 
         try:
             prefix = ["sudo"] if shutil.which("sudo") else []
             if pkg_mgr == "apt":
                 subprocess.run(prefix + ["apt", "update"], check=True)
-                subprocess.run(prefix + ["apt", "install", "-y"] + deps, check=True)
+                subprocess.run(
+                    prefix + ["apt", "install", "-y"] + deps, check=True
+                )
             else:
-                subprocess.run(prefix + [pkg_mgr, "install", "-y"] + deps, check=True)
+                subprocess.run(
+                    prefix + [pkg_mgr, "install", "-y"] + deps, check=True
+                )
             return True
         except Exception as e:
             print(f"Error installing dependencies: {e}")
@@ -393,19 +449,20 @@ class CondaInstaller(InstallerPlugin):
     def is_supported(self) -> bool:
         if shutil.which("conda") or shutil.which("mamba"):
             return True
-        
+
         # On Windows, check common paths
         if platform.system() == "Windows":
+            user_profile = os.environ.get("USERPROFILE", "")
+            local_appdata = os.environ.get("LOCALAPPDATA", "")
             common_paths = [
-                Path(os.environ.get("USERPROFILE", "")) / "miniconda3" / "Scripts" / "conda.exe",
-                Path(os.environ.get("USERPROFILE", "")) / "anaconda3" / "Scripts" / "conda.exe",
+                Path(user_profile) / "miniconda3" / "Scripts" / "conda.exe",
+                Path(user_profile) / "anaconda3" / "Scripts" / "conda.exe",
                 Path("C:/ProgramData/miniconda3/Scripts/conda.exe"),
                 Path("C:/ProgramData/anaconda3/Scripts/conda.exe"),
                 Path("D:/miniconda3/Scripts/conda.exe"),
                 Path("D:/anaconda3/Scripts/conda.exe"),
-                # Add support for AppData/Local (User installs)
-                Path(os.environ.get("LOCALAPPDATA", "")) / "miniconda3" / "Scripts" / "conda.exe",
-                Path(os.environ.get("LOCALAPPDATA", "")) / "anaconda3" / "Scripts" / "conda.exe",
+                Path(local_appdata) / "miniconda3" / "Scripts" / "conda.exe",
+                Path(local_appdata) / "anaconda3" / "Scripts" / "conda.exe",
             ]
             for path in common_paths:
                 if path.exists():
@@ -418,17 +475,19 @@ class CondaInstaller(InstallerPlugin):
             return "mamba"
         if shutil.which("conda"):
             return "conda"
-            
+
         if platform.system() == "Windows":
+            user_profile = os.environ.get("USERPROFILE", "")
+            local_appdata = os.environ.get("LOCALAPPDATA", "")
             common_paths = [
-                Path(os.environ.get("USERPROFILE", "")) / "miniconda3" / "Scripts" / "conda.exe",
-                Path(os.environ.get("USERPROFILE", "")) / "anaconda3" / "Scripts" / "conda.exe",
+                Path(user_profile) / "miniconda3" / "Scripts" / "conda.exe",
+                Path(user_profile) / "anaconda3" / "Scripts" / "conda.exe",
                 Path("C:/ProgramData/miniconda3/Scripts/conda.exe"),
                 Path("C:/ProgramData/anaconda3/Scripts/conda.exe"),
                 Path("D:/miniconda3/Scripts/conda.exe"),
                 Path("D:/anaconda3/Scripts/conda.exe"),
-                Path(os.environ.get("LOCALAPPDATA", "")) / "miniconda3" / "Scripts" / "conda.exe",
-                Path(os.environ.get("LOCALAPPDATA", "")) / "anaconda3" / "Scripts" / "conda.exe",
+                Path(local_appdata) / "miniconda3" / "Scripts" / "conda.exe",
+                Path(local_appdata) / "anaconda3" / "Scripts" / "conda.exe",
             ]
             for path in common_paths:
                 if path.exists():
@@ -441,7 +500,10 @@ class CondaInstaller(InstallerPlugin):
         try:
             # Conda installs into environments. We'll create one named pyvm-<version>
             env_name = f"pyvm-{version}"
-            result = subprocess.run([exe, "create", "-y", "-n", env_name, f"python={version}"], check=False)
+            result = subprocess.run(
+                [exe, "create", "-y", "-n", env_name, f"python={version}"],
+                check=False,
+            )
             if result.returncode == 0:
                 print(f"\n[OK] Python {version} installed via {exe} in environment: {env_name}")
                 print(f"To use: {exe} activate {env_name}")
@@ -481,9 +543,15 @@ class AsdfInstaller(InstallerPlugin):
         print(f"Using asdf to install Python {version}...")
         try:
             # Ensure python plugin is installed
-            subprocess.run(["asdf", "plugin", "add", "python"], check=False, capture_output=True)
-            
-            result = subprocess.run(["asdf", "install", "python", version], check=False)
+            subprocess.run(
+                ["asdf", "plugin", "add", "python"],
+                check=False,
+                capture_output=True,
+            )
+
+            result = subprocess.run(
+                ["asdf", "install", "python", version], check=False
+            )
             if result.returncode == 0:
                 print(f"\n[OK] Python {version} installed via asdf!")
                 print(f"To use: asdf global python {version}")

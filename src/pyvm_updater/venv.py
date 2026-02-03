@@ -67,7 +67,9 @@ def find_python_executable(version: str) -> str | None:
     installed = get_installed_python_versions()
     for v in installed:
         v_parts = v["version"].split(".")
-        v_major_minor = f"{v_parts[0]}.{v_parts[1]}" if len(v_parts) >= 2 else v["version"]
+        v_major_minor = (
+            f"{v_parts[0]}.{v_parts[1]}" if len(v_parts) >= 2 else v["version"]
+        )
         if v_major_minor == major_minor and v.get("path"):
             path = v["path"]
             return str(path) if path else None
@@ -91,7 +93,9 @@ def find_python_executable(version: str) -> str | None:
         candidates = [
             f"python{major_minor}",
             f"python{parts[0]}",
-            os.path.expanduser(f"~/.local/share/mise/installs/python/{version}/bin/python3"),
+            os.path.expanduser(
+                f"~/.local/share/mise/installs/python/{version}/bin/python3"
+            ),
             os.path.expanduser(f"~/.pyenv/versions/{version}/bin/python3"),
         ]
 
@@ -138,7 +142,10 @@ def create_venv(
     if python_version:
         python_exe = find_python_executable(python_version)
         if not python_exe:
-            return False, f"Python {python_version} not found. Install it first with: pyvm install {python_version}.0"
+            return (
+                False,
+                f"Python {python_version} not found. Install it first with: pyvm install {python_version}.0",
+            )
     else:
         python_exe = sys.executable
         python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
@@ -169,7 +176,10 @@ def create_venv(
         return True, f"Created venv '{name}' at {venv_path}"
 
     except subprocess.CalledProcessError as e:
-        return False, f"Failed to create venv: {e.stderr or e.stdout or str(e)}"
+        return (
+            False,
+            f"Failed to create venv: {e.stderr or e.stdout or str(e)}",
+        )
     except OSError as e:
         return False, f"Failed to create venv: {e}"
 
