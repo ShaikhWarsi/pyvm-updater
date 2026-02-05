@@ -331,19 +331,43 @@ class MicrosoftStoreInstaller(InstallerPlugin):
         try:
             # Microsoft Store Python packages usually follow this ID pattern
             pkg_id = f"Python.Python.{major_minor}"
-            result = subprocess.run(["winget", "install", "--id", pkg_id, "--source", "msstore", "--accept-package-agreements", "--accept-source-agreements"], check=False)
-            
+            result = subprocess.run(
+                [
+                    "winget",
+                    "install",
+                    "--id",
+                    pkg_id,
+                    "--source",
+                    "msstore",
+                    "--accept-package-agreements",
+                    "--accept-source-agreements",
+                ],
+                check=False,
+            )
+
             if result.returncode == 0:
                 print(f"\n[OK] Python {major_minor} installed via Microsoft Store!")
                 return True
             else:
                 # Try alternate ID if first one fails
                 alt_pkg_id = f"PythonSoftwareFoundation.Python.{major_minor}"
-                result = subprocess.run(["winget", "install", "--id", alt_pkg_id, "--source", "msstore", "--accept-package-agreements", "--accept-source-agreements"], check=False)
+                result = subprocess.run(
+                    [
+                        "winget",
+                        "install",
+                        "--id",
+                        alt_pkg_id,
+                        "--source",
+                        "msstore",
+                        "--accept-package-agreements",
+                        "--accept-source-agreements",
+                    ],
+                    check=False,
+                )
                 if result.returncode == 0:
                     print(f"\n[OK] Python {major_minor} installed via Microsoft Store!")
                     return True
-                
+
         except Exception as e:
             print(f"winget error: {e}")
         return False
@@ -359,7 +383,7 @@ class MicrosoftStoreInstaller(InstallerPlugin):
             result = subprocess.run(["winget", "uninstall", "--id", pkg_id], check=False, capture_output=True)
             if result.returncode == 0:
                 return True
-            
+
             alt_pkg_id = f"PythonSoftwareFoundation.Python.{major_minor}"
             result = subprocess.run(["winget", "uninstall", "--id", alt_pkg_id], check=False, capture_output=True)
             return result.returncode == 0
