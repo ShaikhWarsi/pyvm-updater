@@ -260,14 +260,14 @@ class WindowsInstaller(InstallerPlugin):
 
         try:
             cmd = [installer_path]
-            
+
             # Add options from wizard if provided
             if kwargs.get("add_to_path"):
                 cmd.append("PrependPath=1")
-            
+
             if kwargs.get("install_path"):
                 cmd.append(f"TargetDir={kwargs['install_path']}")
-                
+
             # Default to passive installation if options are provided to avoid too much manual interaction
             if kwargs.get("add_to_path") or kwargs.get("install_path"):
                 cmd.append("/passive")
@@ -355,14 +355,14 @@ class SourceInstaller(InstallerPlugin):
 
             print(f"🔧 Configuring and building with {os.cpu_count() or 2} cores...")
             cpu_cores = str(os.cpu_count() or 2)
-            
+
             configure_cmd = ["./configure"]
             if kwargs.get("optimizations", True):
                 configure_cmd.append("--enable-optimizations")
-            
+
             if kwargs.get("install_path"):
                 configure_cmd.append(f"--prefix={kwargs['install_path']}")
-                
+
             subprocess.run(configure_cmd, cwd=build_dir, check=True)
             subprocess.run(["make", f"-j{cpu_cores}"], cwd=build_dir, check=True)
             subprocess.run(["sudo", "make", "altinstall"], cwd=build_dir, check=True)

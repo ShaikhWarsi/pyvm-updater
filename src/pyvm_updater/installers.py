@@ -4,16 +4,20 @@ from __future__ import annotations
 
 import click
 
+from typing import Any
+
 from .config import get_config
 from .plugins.manager import get_plugin_manager
 
 
-def update_python_windows(version_str: str, preferred: str = "auto", **kwargs) -> bool:
+def update_python_windows(version_str: str, preferred: str = "auto", **kwargs: Any) -> bool:
     """Update Python on Windows."""
     return _install_with_plugins(version_str, preferred=preferred, **kwargs)
 
 
-def update_python_linux(version_str: str, build_from_source: bool = False, preferred: str = "auto", **kwargs) -> bool:
+def update_python_linux(
+    version_str: str, build_from_source: bool = False, preferred: str = "auto", **kwargs: Any
+) -> bool:
     """Install Python on Linux."""
     if preferred == "auto" and build_from_source:
         preferred = "source"
@@ -23,12 +27,12 @@ def update_python_linux(version_str: str, build_from_source: bool = False, prefe
     return _install_with_plugins(version_str, preferred=preferred, **kwargs)
 
 
-def update_python_macos(version_str: str, preferred: str = "auto", **kwargs) -> bool:
+def update_python_macos(version_str: str, preferred: str = "auto", **kwargs: Any) -> bool:
     """Update Python on macOS."""
     return _install_with_plugins(version_str, preferred=preferred, **kwargs)
 
 
-def _install_with_plugins(version_str: str, preferred: str = "auto", **kwargs) -> bool:
+def _install_with_plugins(version_str: str, preferred: str = "auto", **kwargs: Any) -> bool:
     """Generic installation logic using the plugin system."""
     pm = get_plugin_manager()
     installer = pm.get_best_installer(preferred=preferred)

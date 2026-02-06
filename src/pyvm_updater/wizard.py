@@ -7,7 +7,7 @@ from typing import Any
 
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import (
     Button,
@@ -116,14 +116,16 @@ class WizardScreen(ModalScreen[dict[str, Any]]):
                 # Step 3: Advanced Options
                 with Vertical(id="step-options", classes="step-container"):
                     yield Label("Advanced Installation Options:", classes="step-label")
-                    
+
                     if platform.system() == "Linux":
                         yield Checkbox("Build from source (Recommended for performance)", id="opt-source", value=False)
-                        yield Checkbox("Enable optimizations (--enable-optimizations)", id="opt-optimizations", value=True)
-                    
+                        yield Checkbox(
+                            "Enable optimizations (--enable-optimizations)", id="opt-optimizations", value=True
+                        )
+
                     yield Label("Custom Installation Path (Optional):", classes="step-label")
                     yield Input(placeholder="/usr/local/custom-python", id="opt-path")
-                    
+
                     if platform.system() == "Windows":
                         yield Checkbox("Add Python to PATH", id="opt-add-path", value=True)
 
@@ -144,12 +146,12 @@ class WizardScreen(ModalScreen[dict[str, Any]]):
     def _update_nav_buttons(self) -> None:
         back_btn = self.query_one("#btn-back", Button)
         next_btn = self.query_one("#btn-next", Button)
-        
+
         if self.current_step_idx == 0:
             back_btn.disabled = True
         else:
             back_btn.disabled = False
-            
+
         if self.current_step_idx == len(self.steps) - 1:
             next_btn.label = "Install"
             next_btn.variant = "success"
@@ -161,17 +163,17 @@ class WizardScreen(ModalScreen[dict[str, Any]]):
     def _update_confirm_details(self) -> None:
         details = f"Version: [cyan]{self.options['version']}[/cyan]\n"
         details += f"Installer: [cyan]{self.options['installer']}[/cyan]\n"
-        
+
         if platform.system() == "Linux" and self.options.get("build_from_source"):
             details += "Build: [cyan]From Source[/cyan]\n"
             details += f"Optimizations: [cyan]{'Enabled' if self.options.get('optimizations') else 'Disabled'}[/cyan]\n"
-            
+
         if self.options.get("install_path"):
             details += f"Path: [cyan]{self.options['install_path']}[/cyan]\n"
-            
+
         if platform.system() == "Windows":
             details += f"Add to PATH: [cyan]{'Yes' if self.options.get('add_to_path') else 'No'}[/cyan]\n"
-            
+
         self.query_one("#confirm-details", Static).update(details)
 
     @on(Button.Pressed, "#btn-cancel")
@@ -194,17 +196,17 @@ class WizardScreen(ModalScreen[dict[str, Any]]):
                 # Could show an error message
                 return
             self.options["version"] = ver
-        
+
         elif self.current_step_idx == 1:
             # Installer selection is handled by radio set event or we can check it here
             rs = self.query_one("#installer-select", RadioSet)
-            if rs.pressed_button:
+            if rs.pressed_button and rs.pressed_button.id:
                 btn_id = rs.pressed_button.id
                 if btn_id == "installer-auto":
                     self.options["installer"] = "auto"
                 else:
                     self.options["installer"] = btn_id.replace("installer-", "")
-        
+
         elif self.current_step_idx == 2:
             # Collect options
             if platform.system() == "Linux":
@@ -213,10 +215,10 @@ class WizardScreen(ModalScreen[dict[str, Any]]):
                     self.options["optimizations"] = self.query_one("#opt-optimizations", Checkbox).value
                 except Exception:
                     pass
-            
+
             path_input = self.query_one("#opt-path", Input).value.strip()
             self.options["install_path"] = path_input
-            
+
             if platform.system() == "Windows":
                 try:
                     self.options["add_to_path"] = self.query_one("#opt-add-path", Checkbox).value

@@ -488,10 +488,10 @@ class MainScreen(Screen):
         """Start wizard without a version pre-selected"""
         self.start_wizard()
 
-    def start_wizard(self, version: str | None = None) -> None:
+    def start_wizard(self, version: Optional[str] = None) -> None:
         """Open the installation wizard"""
 
-        def handle_wizard_result(options: dict[str, Any] | None) -> None:
+        def handle_wizard_result(options: Optional[dict[str, Any]]) -> None:
             if options:
                 self.run_wizard_install_with_suspend(options)
 
