@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import platform
+import re
 from typing import Any
 
 from textual import on
@@ -192,9 +193,10 @@ class WizardScreen(ModalScreen[dict[str, Any]]):
         # Validate current step
         if self.current_step_idx == 0:
             ver = self.query_one("#version-input", Input).value.strip()
-            if not ver:
-                # Could show an error message
+            if not ver or not re.match(r"^\d+\.\d+\.\d+$", ver):
+                self.query_one("#version-input", Input).styles.border = ("solid", "red")
                 return
+            self.query_one("#version-input", Input).styles.border = None
             self.options["version"] = ver
 
         elif self.current_step_idx == 1:
