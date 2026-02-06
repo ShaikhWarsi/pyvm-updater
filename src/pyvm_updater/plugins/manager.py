@@ -12,6 +12,7 @@ from .standard import (
     AsdfInstaller,
     BrewInstaller,
     CondaInstaller,
+    MicrosoftStoreInstaller,
     MiseInstaller,
     PyenvInstaller,
     SourceInstaller,
@@ -41,6 +42,7 @@ class PluginManager:
             BrewInstaller(),
             CondaInstaller(),
             AptInstaller(),
+            MicrosoftStoreInstaller(),
             WindowsInstaller(),
             SourceInstaller(),
         ]
