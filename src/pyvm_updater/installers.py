@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import click
-
 from typing import Any
+
+import click
 
 from .config import get_config
 from .plugins.manager import get_plugin_manager
