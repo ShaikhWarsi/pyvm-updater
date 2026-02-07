@@ -549,34 +549,40 @@ def venv() -> None:
 @click.option("--python", "-p", "python_version", help="Python version to use (e.g., 3.12)")
 @click.option("--path", type=click.Path(), help="Custom path for the venv")
 @click.option("--system-site-packages", is_flag=True, help="Include system site-packages")
+@click.option("--requirements", "-r", type=click.Path(exists=True), help="Install dependencies from requirements file")
 def venv_create(
     name: str,
     python_version: str | None,
     path: str | None,
     system_site_packages: bool,
+    requirements: str | None,
 ) -> None:
     """Create a new virtual environment.
 
     Examples:
         pyvm venv create myproject
         pyvm venv create myproject --python 3.12
-        pyvm venv create myproject --path ./venv
+        pyvm venv create myproject --requirements requirements.txt
     """
     from pathlib import Path as PathLib
 
     from .venv import create_venv
 
     venv_path = PathLib(path) if path else None
+    req_path = PathLib(requirements) if requirements else None
 
     click.echo(f"Creating venv '{name}'...")
     if python_version:
         click.echo(f"Using Python {python_version}")
+    if req_path:
+        click.echo(f"Installing dependencies from {req_path.name}")
 
     success, message = create_venv(
         name=name,
         python_version=python_version,
         path=venv_path,
         system_site_packages=system_site_packages,
+        requirements_file=req_path,
     )
 
     if success:

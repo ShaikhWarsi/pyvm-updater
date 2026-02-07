@@ -12,7 +12,7 @@ from .plugins.manager import get_plugin_manager
 
 def update_python_windows(version_str: str, preferred: str = "auto", **kwargs: Any) -> bool:
     """Update Python on Windows."""
-    return _install_with_plugins(version_str, preferred=preferred, **kwargs)
+    return _install_with_plugins(version_str, preferred=preferred)
 
 
 def update_python_linux(
@@ -43,7 +43,8 @@ def _install_with_plugins(version_str: str, preferred: str = "auto", **kwargs: A
 
     if preferred != "auto" and installer.get_name() != preferred:
         click.echo(
-            f"⚠️  Requested installer '{preferred}' is not supported or not found. Falling back to '{installer.get_name()}'."
+            f"⚠️  Requested installer '{preferred}' is not supported or not found. "
+            f"Falling back to '{installer.get_name()}'."
         )
 
     return installer.install(version_str, **kwargs)

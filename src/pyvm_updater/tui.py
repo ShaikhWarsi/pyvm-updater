@@ -299,7 +299,8 @@ class MainScreen(Screen):
                 yield Label("Loading...")
 
             yield Static(
-                "[dim]Tab: switch panels | Arrow keys: navigate | Enter: install | W: wizard | X: remove | R: refresh | U: update | B: rollback | Q: quit[/dim]",
+                "[dim]Tab: switch panels | Arrow keys: navigate | Enter: install | X: remove | "
+                "R: refresh | U: update | B: rollback | Q: quit[/dim]",
                 id="hint-bar",
             )
 
