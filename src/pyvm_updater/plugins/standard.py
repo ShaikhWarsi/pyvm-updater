@@ -324,6 +324,89 @@ class WindowsInstaller(InstallerPlugin):
         return 60
 
 
+class MicrosoftStoreInstaller(InstallerPlugin):
+    """Installer for Python from the Microsoft Store using winget."""
+
+    def get_name(self) -> str:
+        return "store"
+
+    def is_supported(self) -> bool:
+        return platform.system() == "Windows" and bool(shutil.which("winget"))
+
+    def install(self, version: str, **kwargs: Any) -> bool:
+        parts = version.split(".")
+        if len(parts) < 2:
+            print("Error: Version must be at least major.minor for Store installation.")
+            return False
+        major_minor = f"{parts[0]}.{parts[1]}"
+
+        print(f"Using winget to install Python {major_minor} from Microsoft Store...")
+        try:
+            # Microsoft Store Python packages usually follow this ID pattern
+            pkg_id = f"Python.Python.{major_minor}"
+            result = subprocess.run(
+                [
+                    "winget",
+                    "install",
+                    "--id",
+                    pkg_id,
+                    "--source",
+                    "msstore",
+                    "--accept-package-agreements",
+                    "--accept-source-agreements",
+                ],
+                check=False,
+            )
+
+            if result.returncode == 0:
+                print(f"\n[OK] Python {major_minor} installed via Microsoft Store!")
+                return True
+            else:
+                # Try alternate ID if first one fails
+                alt_pkg_id = f"PythonSoftwareFoundation.Python.{major_minor}"
+                result = subprocess.run(
+                    [
+                        "winget",
+                        "install",
+                        "--id",
+                        alt_pkg_id,
+                        "--source",
+                        "msstore",
+                        "--accept-package-agreements",
+                        "--accept-source-agreements",
+                    ],
+                    check=False,
+                )
+                if result.returncode == 0:
+                    print(f"\n[OK] Python {major_minor} installed via Microsoft Store!")
+                    return True
+
+        except Exception as e:
+            print(f"winget error: {e}")
+        return False
+
+    def uninstall(self, version: str) -> bool:
+        parts = version.split(".")
+        if len(parts) < 2:
+            return False
+        major_minor = f"{parts[0]}.{parts[1]}"
+
+        try:
+            pkg_id = f"Python.Python.{major_minor}"
+            result = subprocess.run(["winget", "uninstall", "--id", pkg_id], check=False, capture_output=True)
+            if result.returncode == 0:
+                return True
+
+            alt_pkg_id = f"PythonSoftwareFoundation.Python.{major_minor}"
+            result = subprocess.run(["winget", "uninstall", "--id", alt_pkg_id], check=False, capture_output=True)
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def get_priority(self) -> int:
+        return 75  # Higher than standard Windows installer, lower than pyenv/mise
+
+
 class SourceInstaller(InstallerPlugin):
     """Installer that builds Python from source (Linux)."""
 

@@ -446,9 +446,19 @@ class MainScreen(Screen):
             ver = v.get("version", "Unknown")
             path = v.get("path", "")
             is_current = v.get("default", False)
+            is_store = v.get("store", False)
+
             # Shorten path for display
             short_path = path.split("/")[-1] if "/" in path else path.split("\\")[-1] if "\\" in path else ""
-            await installed_list.append(VersionItem(ver, short_path, is_current, False))
+
+            info = short_path
+            if is_store:
+                if info:
+                    info = f"Store | {info}"
+                else:
+                    info = "Store"
+
+            await installed_list.append(VersionItem(ver, info, is_current, False))
 
     async def _populate_available_list(self) -> None:
         """Populate the available versions list"""
