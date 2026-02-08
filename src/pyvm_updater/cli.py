@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-import os
-import shutil
-import requests
-
 import json
+import os
 import platform
+import shutil
 import subprocess
 import sys
 from typing import Any
 
 import click
+import requests
 
 from . import __version__
 from .config import get_config
@@ -678,12 +677,13 @@ def venv_activate(name: str) -> None:
         click.echo(f"❌ Venv '{name}' not found.")
         sys.exit(1)
 
+
 @cli.command()
 def doctor():
     """Run a health check of the environment."""
     click.secho("🩺 Running pyvm-updater health check...", fg="cyan", bold=True)
     click.echo("-" * 40)
-    
+
     all_passed = True
 
     # 1. Check for Helper Tools (pyenv or mise)
@@ -718,6 +718,7 @@ def doctor():
         click.secho(" System is healthy and ready to use!", fg="bright_cyan", bold=True)
     else:
         click.secho(" Some checks failed. Please resolve the red items above.", fg="yellow")
+
 
 @cli.command("use")
 @click.argument("version")
