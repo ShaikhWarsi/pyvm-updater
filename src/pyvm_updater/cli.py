@@ -675,6 +675,133 @@ def venv_activate(name: str) -> None:
         sys.exit(1)
 
 
+@cli.command("use")
+@click.argument("version")
+def use_version(version: str) -> None:
+    """Temporarily set Python version for current shell session (spawns subshell).
+
+    This command will:
+    1. Find the requested Python executable
+    2. Create a temporary session environment using symlinks
+    3. Spawn a new shell with this environment active
+    4. Clean up when you exit the shell
+
+    Type 'exit' to return to your normal shell session.
+    """
+    import os
+    import shutil
+    import tempfile
+
+    from .venv import find_python_executable
+
+    try:
+        if not validate_version_string(version):
+            click.echo(f"Error: Invalid version format: {version}")
+            sys.exit(1)
+
+        # Locate Python
+        python_exe = find_python_executable(version)
+        if not python_exe:
+            click.echo(f"❌ Python {version} not found.")
+            click.echo("\nInstalled versions:")
+            from .version import get_installed_python_versions
+
+            for v in get_installed_python_versions():
+                if not v.get("default"):
+                    click.echo(f"  - {v['version']}")
+
+            click.echo(f"\nInstall it with: pyvm install {version}")
+            sys.exit(1)
+
+        click.echo(f"Found Python {version} at: {python_exe}")
+
+        # Prepare session
+        session_dir = tempfile.mkdtemp(prefix=f"pyvm_session_{version}_")
+        bin_dir = os.path.join(session_dir, "bin")
+        os.makedirs(bin_dir, exist_ok=True)
+
+        # Determine executable names based on OS
+        os_name, _ = get_os_info()
+        is_windows = os_name == "windows"
+
+        exe_name = "python.exe" if is_windows else "python"
+
+        try:
+            target = python_exe
+            link_path = os.path.join(bin_dir, exe_name)
+
+            if is_windows:
+                # Windows usually puts python in root of install dir, not bin
+                try:
+                    os.symlink(target, link_path)
+                except OSError:
+                    # Fallback: simple shim
+                    with open(os.path.join(bin_dir, "python.bat"), "w") as f:
+                        f.write(f'@echo off\n"{target}" %*')
+            else:
+                os.symlink(target, link_path)
+                # Also link python3 if appropriate
+                if not os.path.exists(os.path.join(bin_dir, "python3")):
+                    os.symlink(target, os.path.join(bin_dir, "python3"))
+
+            # Handle pip
+            pip_name = "pip.exe" if is_windows else "pip"
+            target_dir = os.path.dirname(target)
+
+            # Pip location strategy
+            possible_pips = [os.path.join(target_dir, pip_name)]
+            if is_windows:
+                possible_pips.append(os.path.join(target_dir, "Scripts", pip_name))
+
+            for pip_path in possible_pips:
+                if os.path.exists(pip_path):
+                    try:
+                        os.symlink(pip_path, os.path.join(bin_dir, pip_name))
+                        break
+                    except OSError:
+                        pass
+
+        except Exception as e:
+            click.echo(f"Error preparing session: {e}")
+            shutil.rmtree(session_dir)
+            sys.exit(1)
+
+        # Spawn shell
+        current_shell = os.environ.get("SHELL", "/bin/bash")
+        if is_windows:
+            current_shell = os.environ.get("COMSPEC", "cmd.exe")
+
+        env = os.environ.copy()
+
+        # Prepend to PATH
+        if is_windows:
+            env["PATH"] = f"{bin_dir};{env.get('PATH', '')}"
+        else:
+            env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+        # Set prompt indicator if possible
+        if not is_windows:
+            env["PYVM_OLD_PS1"] = env.get("PS1", "")
+            env["PYVM_VERSION"] = version
+
+        click.echo("\n" + "=" * 50)
+        click.echo(f"🎉 Entering temporary shell for Python {version}")
+        click.echo("ℹ️  Type 'exit' or Press Ctrl+D to return.")
+        click.echo("=" * 50 + "\n")
+
+        try:
+            subprocess.run([current_shell], env=env)
+        except Exception as e:
+            click.echo(f"Error running shell: {e}")
+        finally:
+            click.echo(f"\nExiting Python {version} session...")
+            shutil.rmtree(session_dir)
+
+    except Exception as e:
+        click.echo(f"\nError: {e}")
+        sys.exit(1)
+
+
 def main() -> None:
     """Main entry point for the script."""
     try:

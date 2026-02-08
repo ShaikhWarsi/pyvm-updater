@@ -102,7 +102,7 @@ def find_python_executable(version: str) -> str | None:
             else:
                 path = shutil.which(candidate)
                 if path:
-                    return path
+                    return str(path)
 
     return None
 

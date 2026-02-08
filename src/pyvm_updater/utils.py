@@ -9,7 +9,7 @@ import re
 import time
 
 import click
-import requests
+import requests  # type: ignore
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -74,7 +74,11 @@ def fetch_remote_sha256(checksum_url: str) -> str | None:
     try:
         response = requests.get(checksum_url, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
-        return response.text.strip().split()[0]
+        content = str(response.text).strip()
+        parts = content.split()
+        if parts:
+            return parts[0]
+        return None
     except Exception as e:
         click.echo(f"❌ Failed to fetch checksum: {e}")
         return None

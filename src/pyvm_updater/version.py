@@ -10,7 +10,7 @@ import sys
 import time
 from typing import Any
 
-import requests
+import requests  # type: ignore
 from bs4 import BeautifulSoup
 from packaging import version as pkg_version
 
