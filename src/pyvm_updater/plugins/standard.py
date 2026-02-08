@@ -259,7 +259,20 @@ class WindowsInstaller(InstallerPlugin):
         print("Please follow the installer prompts.")
 
         try:
-            result = subprocess.run([installer_path], check=False)
+            cmd = [installer_path]
+
+            # Add options from wizard if provided
+            if kwargs.get("add_to_path"):
+                cmd.append("PrependPath=1")
+
+            if kwargs.get("install_path"):
+                cmd.append(f"TargetDir={kwargs['install_path']}")
+
+            # Default to passive installation if options are provided to avoid too much manual interaction
+            if kwargs.get("add_to_path") or kwargs.get("install_path"):
+                cmd.append("/passive")
+
+            result = subprocess.run(cmd, check=False)
             if result.returncode != 0:
                 # 1602: User cancelled, 1603: Fatal error during installation (common for cancellation)
                 if result.returncode in [1602, 1603]:
@@ -425,7 +438,15 @@ class SourceInstaller(InstallerPlugin):
 
             print(f"🔧 Configuring and building with {os.cpu_count() or 2} cores...")
             cpu_cores = str(os.cpu_count() or 2)
-            subprocess.run(["./configure", "--enable-optimizations"], cwd=build_dir, check=True)
+
+            configure_cmd = ["./configure"]
+            if kwargs.get("optimizations", True):
+                configure_cmd.append("--enable-optimizations")
+
+            if kwargs.get("install_path"):
+                configure_cmd.append(f"--prefix={kwargs['install_path']}")
+
+            subprocess.run(configure_cmd, cwd=build_dir, check=True)
             subprocess.run(["make", f"-j{cpu_cores}"], cwd=build_dir, check=True)
             subprocess.run(["sudo", "make", "altinstall"], cwd=build_dir, check=True)
 

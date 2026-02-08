@@ -2,33 +2,37 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import click
 
 from .config import get_config
 from .plugins.manager import get_plugin_manager
 
 
-def update_python_windows(version_str: str, preferred: str = "auto") -> bool:
+def update_python_windows(version_str: str, preferred: str = "auto", **kwargs: Any) -> bool:
     """Update Python on Windows."""
     return _install_with_plugins(version_str, preferred=preferred)
 
 
-def update_python_linux(version_str: str, build_from_source: bool = False, preferred: str = "auto") -> bool:
+def update_python_linux(
+    version_str: str, build_from_source: bool = False, preferred: str = "auto", **kwargs: Any
+) -> bool:
     """Install Python on Linux."""
     if preferred == "auto" and build_from_source:
         preferred = "source"
     elif preferred == "auto":
         preferred = get_config().preferred_installer
 
-    return _install_with_plugins(version_str, preferred=preferred)
+    return _install_with_plugins(version_str, preferred=preferred, **kwargs)
 
 
-def update_python_macos(version_str: str, preferred: str = "auto") -> bool:
+def update_python_macos(version_str: str, preferred: str = "auto", **kwargs: Any) -> bool:
     """Update Python on macOS."""
-    return _install_with_plugins(version_str, preferred=preferred)
+    return _install_with_plugins(version_str, preferred=preferred, **kwargs)
 
 
-def _install_with_plugins(version_str: str, preferred: str = "auto") -> bool:
+def _install_with_plugins(version_str: str, preferred: str = "auto", **kwargs: Any) -> bool:
     """Generic installation logic using the plugin system."""
     pm = get_plugin_manager()
     installer = pm.get_best_installer(preferred=preferred)
@@ -39,10 +43,11 @@ def _install_with_plugins(version_str: str, preferred: str = "auto") -> bool:
 
     if preferred != "auto" and installer.get_name() != preferred:
         click.echo(
-            f"⚠️  Requested installer '{preferred}' is not supported or not found. Falling back to '{installer.get_name()}'."
+            f"⚠️  Requested installer '{preferred}' is not supported or not found. "
+            f"Falling back to '{installer.get_name()}'."
         )
 
-    return installer.install(version_str)
+    return installer.install(version_str, **kwargs)
 
 
 def remove_python_windows(version_str: str) -> bool:
