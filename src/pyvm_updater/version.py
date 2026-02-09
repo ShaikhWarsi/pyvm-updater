@@ -18,7 +18,6 @@ from .constants import MAX_RETRIES, REQUEST_TIMEOUT, RETRY_DELAY
 from .metadata_store import (
     get_releases_from_cache,
     get_versions_from_cache,
-    is_cache_stale,
     start_background_sync_if_stale,
     sync_python_org,
 )
@@ -347,8 +346,15 @@ def get_available_python_versions(limit: int = 50) -> list[dict[str, str]]:
                 if version_text.startswith("Python "):
                     ver = version_text.replace("Python ", "")
                     if validate_version_string(ver):
-                        href = link.get("href", "")
-                        full = f"https://www.python.org{href}" if href and not href.startswith("http") else href
+                        href_val = link.get("href")
+                        if isinstance(href_val, str):
+                            full = (
+                                f"https://www.python.org{href_val}"
+                                if not href_val.startswith("http")
+                                else href_val
+                            )
+                        else:
+                            full = ""
                         versions.append({"version": ver, "url": full})
         return versions
     except Exception:
@@ -446,7 +452,9 @@ def is_version_security_supported(ver: str) -> bool:
         return False
 
 
-def get_versions_filtered(min_version: str | None = None, security_supported_only: bool = False) -> list[dict[str, Any]]:
+def get_versions_filtered(
+    min_version: str | None = None, security_supported_only: bool = False
+) -> list[dict[str, Any]]:
     releases = get_active_python_releases()
     out: list[dict[str, Any]] = []
     for rel in releases:

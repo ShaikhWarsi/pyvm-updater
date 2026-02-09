@@ -3,7 +3,6 @@ from __future__ import annotations
 import sqlite3
 import threading
 import time
-from pathlib import Path
 from typing import Any
 
 import requests  # type: ignore
@@ -22,9 +21,7 @@ def _connect() -> sqlite3.Connection:
     conn.execute(
         "CREATE TABLE IF NOT EXISTS versions (version TEXT PRIMARY KEY, url TEXT, source TEXT, fetched_at INTEGER)"
     )
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)"
-    )
+    conn.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
     return conn
 
 
@@ -69,9 +66,7 @@ def get_releases_from_cache() -> list[dict[str, Any]]:
 def get_versions_from_cache(limit: int = 50) -> list[dict[str, str]]:
     try:
         with _connect() as conn:
-            cur = conn.execute(
-                "SELECT version, url FROM versions ORDER BY fetched_at DESC LIMIT ?", (limit,)
-            )
+            cur = conn.execute("SELECT version, url FROM versions ORDER BY fetched_at DESC LIMIT ?", (limit,))
             rows = cur.fetchall()
             return [{"version": r[0], "url": r[1]} for r in rows]
     except Exception:
@@ -154,8 +149,15 @@ def sync_python_org() -> None:
                         if vt.startswith("Python "):
                             ver = vt.replace("Python ", "")
                             if validate_version_string(ver):
-                                href = link.get("href", "")
-                                full = f"https://www.python.org{href}" if href and not href.startswith("http") else href
+                                href_val = link.get("href")
+                                if isinstance(href_val, str):
+                                    full = (
+                                        f"https://www.python.org{href_val}"
+                                        if not href_val.startswith("http")
+                                        else href_val
+                                    )
+                                else:
+                                    full = ""
                                 conn.execute(
                                     "INSERT OR REPLACE INTO versions(version, url, source, fetched_at) VALUES(?,?,?,?)",
                                     (ver, full, "python.org", _now()),
@@ -176,6 +178,7 @@ def start_background_sync_if_stale() -> None:
         return
     if _sync_lock.locked():
         return
+
     def _run():
         try:
             _sync_lock.acquire()
@@ -185,5 +188,6 @@ def start_background_sync_if_stale() -> None:
                 _sync_lock.release()
             except Exception:
                 pass
+
     t = threading.Thread(target=_run, daemon=True)
     t.start()
