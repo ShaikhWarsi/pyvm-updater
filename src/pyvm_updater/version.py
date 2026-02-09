@@ -348,11 +348,7 @@ def get_available_python_versions(limit: int = 50) -> list[dict[str, str]]:
                     if validate_version_string(ver):
                         href_val = link.get("href")
                         if isinstance(href_val, str):
-                            full = (
-                                f"https://www.python.org{href_val}"
-                                if not href_val.startswith("http")
-                                else href_val
-                            )
+                            full = f"https://www.python.org{href_val}" if not href_val.startswith("http") else href_val
                         else:
                             full = ""
                         versions.append({"version": ver, "url": full})
